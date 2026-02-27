@@ -2,16 +2,17 @@
 
 Nova is an intelligent, conversational terminal assistant that translates your natural language requests into executable shell commands. It acts as a protective layer between you and your operating system, ensuring commands are safe to run while explaining what they do.
 
-## Features
+## Key Features
 
-- **Conversational AI**: Ask questions and get intelligent, explanatory answers along with your commands.
-- **Cross-Platform Support**: Generates correct commands for Windows (PowerShell), macOS, and Linux (bash/zsh).
+- **Conversational Context**: Nova remembers your recent questions and answers, allowing you to ask follow-up questions naturally without losing context.
+- **Persistent Memory**: You can set permanent rules and preferences (e.g., "Always use TypeScript") that Nova will strictly follow for every command it generates.
+- **Built-in Assistant Mode**: Simply typing `nova ?` or `nova help` provides an instant native feature list and guide without using API tokens.
+- **Cross-Platform Support**: Generates correct shell commands for Windows (PowerShell), macOS, and Linux (bash/zsh).
 - **Security First**: 
   - Dangerous commands (like `rm -rf /` or `format C:`) are strictly blocked.
   - Risky commands (like `sudo` or permission changes) require explicit confirmation.
-  - Your API configuration is locked down with restrictive file permissions.
-- **Interactive Authentication**: Secure, masked entry for your API credentials.
-- **Smart Chain Processing**: Properly strings together complex multi-step commands based on your OS.
+  - Your API configuration and memory data are locked down with restrictive file permissions.
+- **Interactive Authentication**: Secure, masked keyboard entry for your API credentials.
 
 ---
 
@@ -43,9 +44,10 @@ That's it! Nova is ready to use.
 
 ---
 
-## Usage Example
+## Usage Examples
 
-To ask Nova to do something, just type `nova ask` followed by what you want in quotes:
+### 1. Generating Commands
+To ask Nova to do something, just type `nova ask` (or simply `nova` since ask is the default) followed by what you want in quotes:
 
 ```bash
 nova ask "find all PDF files in my downloads folder"
@@ -63,7 +65,8 @@ Nova will read your request, explain what the best command is, and ask if you wa
 ? Execute this action? (y/N) 
 ```
 
-You can even just chat with Nova:
+### 2. General Conversation
+You can just chat with Nova natively:
 
 ```bash
 nova ask "hello"
@@ -72,10 +75,40 @@ nova ask "hello"
   Nova: Hello! How can I assist you with your terminal today?
 ```
 
+### 3. Persistent Memory (Permanent Rules)
+Tell Nova how you prefer to work, and it will remember forever.
+
+Add a rule:
+```bash
+nova remember "Always use TypeScript for new projects"
+```
+
+List your rules:
+```bash
+nova memory --list
+```
+
+Remove a specific rule (e.g., rule number 1):
+```bash
+nova memory --remove 1
+```
+
+Clear all memory rules:
+```bash
+nova memory --clear
+```
+
+### 4. Contextual Chat Memory
+Nova remembers the last 10 messages of your current session automatically.
+If you wish to clear this short-term context memory to start fresh:
+```bash
+nova reset
+```
+
 ## Security Overview
 
 Nova prioritizes your system's safety. Every generated command runs through a built-in security validator before it is shown to you.
 
-- **Blocked Level**: Operations that destroy the root filesystem, format drives, or perform common malware tactics are completely blocked. Nova will refuse to execute them.
-- **Warning Level**: Operations requiring elevated privileges or modifying system permissions will display an explicit warning and require your consent.
-- **Safe Level**: Standard directory traversal, file creation, and status checks.
+- **Blocked**: Operations that destroy the root filesystem, format drives, or perform common malware tactics are completely blocked. Nova will refuse to execute them.
+- **Warning**: Operations requiring elevated privileges or modifying system permissions will display an explicit warning and require your consent.
+- **Safe**: Standard directory traversal, file creation, and status checks.
