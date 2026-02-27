@@ -11,20 +11,55 @@
  * 7. Execute the command (or cancel)
  */
 
+import fs from "node:fs";
+import path from "node:path";
 import chalk from "chalk";
 import ora from "ora";
 import { confirm } from "@inquirer/prompts";
-import { translateToCommand, AIResponse } from "../services/ai.js";
+import { translateToCommand, AIResponse, AttachedFile } from "../services/ai.js";
 import { executeCommand } from "../utils/executor.js";
 import { validateCommand, getRiskIcon } from "../utils/security.js";
 import { addMessage } from "../services/history.js";
 
-export async function askCommand(prompt: string): Promise<void> {
+export async function askCommand(prompt: string, contextFiles?: string[]): Promise<void> {
     // ─── Validate Input ──────────────────────────────────────
     if (!prompt.trim()) {
         console.log(chalk.red("✖ Please provide a prompt."));
         console.log(chalk.dim('  Example: nova ask "list all files in this folder"'));
         process.exit(1);
+    }
+
+    // ─── Process Files (If Any) ──────────────────────────────
+    const attachedFiles: AttachedFile[] = [];
+
+    if (contextFiles && contextFiles.length > 0) {
+        for (const filePath of contextFiles) {
+            try {
+                const resolvedPath = path.resolve(filePath);
+                if (!fs.existsSync(resolvedPath)) {
+                    console.log(chalk.yellow(`  ⚠ Uyarı: "${filePath}" bulunamadı, atlanıyor.`));
+                    continue;
+                }
+                const stat = fs.statSync(resolvedPath);
+                if (stat.isDirectory()) {
+                    console.log(chalk.yellow(`  ⚠ Uyarı: "${filePath}" bir klasör, atlanıyor.`));
+                    continue;
+                }
+                if (stat.size > 1024 * 1024) { // 1MB limit
+                    console.log(chalk.yellow(`  ⚠ Uyarı: "${filePath}" çok büyük (>1MB), atlanıyor.`));
+                    continue;
+                }
+                const content = fs.readFileSync(resolvedPath, "utf-8");
+                attachedFiles.push({
+                    name: path.basename(resolvedPath),
+                    content: content
+                });
+                console.log(chalk.blue(`  📄 Dosya bağlama eklendi: ${path.basename(resolvedPath)}`));
+            } catch (err) {
+                console.log(chalk.yellow(`  ⚠ Uyarı: "${filePath}" okunamadı, atlanıyor.`));
+            }
+        }
+        if (attachedFiles.length > 0) console.log(); // Spacing
     }
 
     // ─── Call AI Service ─────────────────────────────────────
@@ -36,10 +71,10 @@ export async function askCommand(prompt: string): Promise<void> {
     let aiResult: AIResponse;
 
     try {
-        aiResult = await translateToCommand(prompt);
+        aiResult = await translateToCommand(prompt, attachedFiles);
         spinner.stop();
 
-        // Save conversation context
+        // Save conversation context (prompt only, to keep history clean of massive files)
         addMessage("user", prompt);
         addMessage("model", JSON.stringify(aiResult));
     } catch (error) {
@@ -156,7 +191,7 @@ export async function askCommand(prompt: string): Promise<void> {
 
             if (shouldFix) {
                 const fixPrompt = `Çalıştırdığım "${aiResult.command}" komutu şu hatayı verdi:\n${errorMessage}\nBu hatayı düzelten yeni bir komut üret ve açıklamasını yap.`;
-                await askCommand(fixPrompt);
+                await askCommand(fixPrompt, contextFiles);
                 return;
             } else {
                 console.log(chalk.dim("\n  ✖ Otomatik onarım iptal edildi.\n"));

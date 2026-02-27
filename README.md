@@ -4,6 +4,7 @@ Nova is an intelligent, conversational terminal assistant that translates your n
 
 ## Key Features
 
+- **Project File Context**: Attach physical files (like `package.json` or source code) to your prompt so Nova can generate highly accurate commands based on your actual project constraints.
 - **Auto-Fix (Self-Healing)**: If a generated command fails to execute, Nova intercepts the error and offers to autonomously generate a corrected command.
 - **Conversational Context**: Nova remembers your recent questions and answers, allowing you to ask follow-up questions naturally without losing context.
 - **Persistent Memory**: You can set permanent rules and preferences (e.g., "Always use TypeScript") that Nova will strictly follow for every command it generates.
@@ -113,6 +114,13 @@ If a command you execute fails, Nova will catch the error and offer to fix it fo
 ? Nova'nın bu hatayı analiz edip yeni bir çözüm üretmesini ister misiniz? (Y/n)
 ```
 If you press Enter (Yes), Nova reads the raw error output from your shell and generates a new, corrected command instantly, skipping the need to manually copy-paste logs.
+
+### 6. File Context (Attach Project Files)
+Need Nova to generate a command based on a specific file? Use the `-f` (or `--file`) option:
+```bash
+nova ask "Run the linting script defined in this file" -f package.json
+```
+Nova reads `package.json`, analyzes it, and outputs exactly `npm run lint` without hallucinating or taking up valuable history memory limits.
 
 ## Security & Privacy Overview
 

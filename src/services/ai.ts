@@ -21,6 +21,11 @@ export interface AIResponse {
     command: string;
 }
 
+export interface AttachedFile {
+    name: string;
+    content: string;
+}
+
 const isWindows = os.platform() === "win32";
 const shellName = isWindows ? "PowerShell" : "bash/zsh";
 
@@ -92,7 +97,7 @@ function getClient(): GoogleGenerativeAI {
     return new GoogleGenerativeAI(apiKey);
 }
 
-export async function translateToCommand(userPrompt: string): Promise<AIResponse> {
+export async function translateToCommand(userPrompt: string, attachedFiles: AttachedFile[] = []): Promise<AIResponse> {
     const client = getClient();
     const model = client.getGenerativeModel({
         model: MODEL_NAME,
@@ -105,12 +110,22 @@ export async function translateToCommand(userPrompt: string): Promise<AIResponse
     let result;
 
     try {
+        let finalPromptText = userPrompt;
+
+        if (attachedFiles.length > 0) {
+            finalPromptText += "\n\n--- EKLENEN DOSYA BAĞLAMLARI ---\n";
+            for (const file of attachedFiles) {
+                finalPromptText += `\nDosya: ${file.name}\n\`\`\`\n${file.content}\n\`\`\`\n`;
+            }
+            finalPromptText += "\nYukarıdaki dosya içeriklerini göz önünde bulundurarak işlem yap.\n";
+        }
+
         const history = getHistory();
 
         result = await model.generateContent({
             contents: [
                 ...history,
-                { role: "user", parts: [{ text: userPrompt }] }
+                { role: "user", parts: [{ text: finalPromptText }] }
             ]
         });
     } catch (err: unknown) {

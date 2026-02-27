@@ -43,7 +43,8 @@ program
     .command("ask", { isDefault: true })
     .description("Translate a natural language prompt into a shell command")
     .argument("<prompt...>", "Your request in natural language")
-    .action(async (promptParts: string[]) => {
+    .option("-f, --file <paths...>", "Attach files as context")
+    .action(async (promptParts: string[], options: { file?: string[] }) => {
         const prompt = promptParts.join(" ").trim();
 
         // Intercept help/question marks to avoid unnecessary AI API calls
@@ -52,7 +53,7 @@ program
             return;
         }
 
-        await askCommand(prompt);
+        await askCommand(prompt, options.file);
     });
 
 // ─── Auth Command ────────────────────────────────────────────
