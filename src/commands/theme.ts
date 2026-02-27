@@ -10,15 +10,15 @@ import { getAvailableThemes, isValidTheme, theme } from "../utils/theme.js";
 
 export function themeSetCommand(themeName: string): void {
     if (!themeName || themeName.trim() === "") {
-        console.log(theme.error("[FAIL] Lütfen geçerli bir tema adı girin. Örneğin: 'nova theme set ocean'"));
+        console.log(theme.error("[FAIL] Please enter a valid theme name. e.g.: 'nova theme set ocean'"));
         return;
     }
 
     const cleanTheme = themeName.trim().toLowerCase();
 
     if (!isValidTheme(cleanTheme)) {
-        console.log(chalk.red(`[FAIL] '${cleanTheme}' adında bir tema bulunamadı.`));
-        console.log(chalk.dim(`  Mümkün temaları görmek için: 'nova theme list'`));
+        console.log(chalk.red(`[FAIL] '${cleanTheme}' theme name not found.`));
+        console.log(chalk.dim(`  To see available themes: 'nova theme list'`));
         return;
     }
 
@@ -26,8 +26,8 @@ export function themeSetCommand(themeName: string): void {
 
     console.log();
     // After setting the config, we use the `theme` utility immediately to show the user their new style
-    console.log(theme.success(`  [OK] Arayüz teması başarıyla güncellendi: `) + theme.brand(cleanTheme));
-    console.log(theme.dim(`  Artık çıktılar bu renk şeması üzerinden gösterilecek.`));
+    console.log(theme.success(`  [OK] UI theme updated successfully: `) + theme.brand(cleanTheme));
+    console.log(theme.dim(`  Outputs will now be displayed using this color scheme.`));
     console.log();
 }
 
@@ -36,8 +36,8 @@ export function themeListCommand(): void {
     const allThemes = getAvailableThemes();
 
     console.log();
-    console.log(theme.brand("  Nova Tema Galerisi"));
-    console.log(theme.dim("  Yeni bir tema seçmek için: 'nova theme set <isim>'"));
+    console.log(theme.brand("  Nova Theme Gallery"));
+    console.log(theme.dim("  To select a new theme: 'nova theme set <name>'"));
     console.log();
 
     allThemes.forEach(t => {
@@ -46,7 +46,7 @@ export function themeListCommand(): void {
 
         let label = t;
         if (isCurrent) {
-            label = `${t} (aktif)`;
+            label = `${t} (active)`;
             console.log(theme.brand(`  ${pointer} ${label}`));
         } else {
             // For inactive themes we just print them normally

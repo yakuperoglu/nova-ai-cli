@@ -12,12 +12,12 @@ export function auditCommand(lines: number = 20): void {
     const logs = readLogs(lines);
 
     console.log();
-    console.log(theme.brand("  Nova Audit Trail (Son İşlemler)"));
-    console.log(theme.dim(`  Dosya Konumu: ${getLogPath()}`));
+    console.log(theme.brand("  Nova Audit Trail (Recent Operations)"));
+    console.log(theme.dim(`  File Path: ${getLogPath()}`));
     console.log();
 
     if (logs.length === 0) {
-        console.log(theme.dim("  Henüz kaydedilmiş bir işlem yok."));
+        console.log(theme.dim("  No operations recorded yet."));
     } else {
         logs.forEach(log => {
             // Color code the status part of the log for readability

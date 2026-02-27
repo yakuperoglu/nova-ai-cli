@@ -140,8 +140,8 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
     try {
         const confirmMessage =
             validation.level === "warning"
-                ? theme.warning("[WARN] Bu komut riskler barındırıyor. Yine de çalıştırılsın mı?")
-                : theme.success("Bu işlemi onaylıyor musun?");
+                ? theme.warning("[WARN] This command has risks. Execute anyway?")
+                : theme.success("Do you approve this action?");
 
         const shouldExecute = await confirm({
             message: confirmMessage,
@@ -149,19 +149,19 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
         });
 
         if (!shouldExecute) {
-            console.log(theme.dim("\n  [FAIL] İşlem iptal edildi.\n"));
+            console.log(theme.dim("\n  [FAIL] Operation cancelled.\n"));
             appendLog(prompt, aiResult.command, "CANCELLED");
             return;
         }
     } catch {
         // User pressed Ctrl+C
-        console.log(theme.dim("\n  [FAIL] İşlem iptal edildi.\n"));
+        console.log(theme.dim("\n  [FAIL] Operation cancelled.\n"));
         appendLog(prompt, aiResult.command, "CANCELLED", "User interrupted");
         return;
     }
 
     // ─── Execute Command ────────────────────────────────────
-    console.log(theme.dim("\n  [WAIT] İşleniyor...\n"));
+    console.log(theme.dim("\n  [WAIT] Processing...\n"));
 
     try {
         const result = await executeCommand(aiResult.command);
@@ -176,32 +176,32 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
             console.log(theme.warning(result.stderr));
         }
 
-        console.log(theme.success("\n  [OK] İşlem başarıyla tamamlandı.\n"));
+        console.log(theme.success("\n  [OK] Operation completed successfully.\n"));
         appendLog(prompt, aiResult.command, "SUCCESS");
 
     } catch (error) {
-        let errorMessage = "Bilinmeyen hata";
+        let errorMessage = "Unknown error";
         if (error instanceof Error) {
             errorMessage = error.message;
-            console.log(theme.error(`\n  [FAIL] Çalıştırma başarısız: ${errorMessage}\n`));
+            console.log(theme.error(`\n  [FAIL] Execution failed: ${errorMessage}\n`));
         } else {
-            console.log(theme.error(`\n  [FAIL] Çalıştırma başarısız.\n`));
+            console.log(theme.error(`\n  [FAIL] Execution failed.\n`));
         }
 
         appendLog(prompt, aiResult.command, "FAILED", errorMessage);
 
         try {
             const shouldFix = await confirm({
-                message: theme.brand("Nova'nın bu hatayı analiz edip yeni bir çözüm üretmesini ister misiniz?"),
+                message: theme.brand("Would you like Nova to analyze this error and generate a new solution?"),
                 default: true,
             });
 
             if (shouldFix) {
-                const fixPrompt = `Çalıştırdığım "${aiResult.command}" komutu şu hatayı verdi:\n${errorMessage}\nBu hatayı düzelten yeni bir komut üret ve açıklamasını yap.`;
+                const fixPrompt = `The command I executed "${aiResult.command}" resulted in this error:\n${errorMessage}\nGenerate a new command that fixes this error and explain it.`;
                 await askCommand(fixPrompt, contextFiles);
                 return;
             } else {
-                console.log(theme.dim("\n  [FAIL] Otomatik onarım iptal edildi.\n"));
+                console.log(theme.dim("\n  [FAIL] Auto-Fix cancelled.\n"));
             }
         } catch {
             console.log(theme.dim("\n  [FAIL] Çıkış yapıldı.\n"));

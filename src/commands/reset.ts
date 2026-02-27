@@ -11,9 +11,9 @@ import { theme } from "../utils/theme.js";
 export function resetCommand(): void {
     try {
         clearHistory();
-        console.log(theme.success("\n  [OK] Sohbet geçmişi başarıyla temizlendi. Nova artık önceki konuşmaları hatırlamayacak.\n"));
+        console.log(theme.success("\n  [OK] Chat history cleared successfully. Nova won't remember previous conversations.\n"));
     } catch (error) {
-        console.log(theme.error("\n  [FAIL] Geçmiş temizlenirken bir hata oluştu.\n"));
+        console.log(theme.error("\n  [FAIL] Error clearing history.\n"));
         if (error instanceof Error) {
             console.log(theme.error(`  → ${error.message}\n`));
         }

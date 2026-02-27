@@ -19,8 +19,8 @@ export function modelSetCommand(modelName: string): void {
     setModel(cleanModel);
 
     console.log();
-    console.log(theme.success(`  [OK] Aktif model başarıyla değiştirildi: `) + theme.brand(cleanModel));
-    console.log(theme.dim(`  Artık tüm komutlar ve sohbetler bu model üzerinden işlenecek.`));
+    console.log(theme.success(`  [OK] Active model changed successfully: `) + theme.brand(cleanModel));
+    console.log(theme.dim(`  All commands and chats will now be processed using this model.`));
     console.log();
 }
 
