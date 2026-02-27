@@ -7,10 +7,11 @@
 
 import chalk from "chalk";
 import { setModel, getModel } from "../services/config.js";
+import { theme } from "../utils/theme.js";
 
 export function modelSetCommand(modelName: string): void {
     if (!modelName || modelName.trim() === "") {
-        console.log(chalk.red("✖ Lütfen geçerli bir model adı girin (Örn: gemini-2.5-pro)"));
+        console.log(theme.error("✖ Lütfen geçerli bir model adı girin (Örn: gemini-2.5-pro)"));
         return;
     }
 
@@ -18,8 +19,8 @@ export function modelSetCommand(modelName: string): void {
     setModel(cleanModel);
 
     console.log();
-    console.log(chalk.green(`  ✔ Aktif model başarıyla değiştirildi: `) + chalk.cyan.bold(cleanModel));
-    console.log(chalk.dim(`  Artık tüm komutlar ve sohbetler bu model üzerinden işlenecek.`));
+    console.log(theme.success(`  ✔ Aktif model başarıyla değiştirildi: `) + theme.brand(cleanModel));
+    console.log(theme.dim(`  Artık tüm komutlar ve sohbetler bu model üzerinden işlenecek.`));
     console.log();
 }
 
@@ -27,8 +28,8 @@ export function modelStatusCommand(): void {
     const currentModel = getModel();
 
     console.log();
-    console.log(chalk.blue("  🧠 Mevcut AI Modeli : ") + chalk.cyan.bold(currentModel));
-    console.log(chalk.dim("  Sistemin varsayılan modeli 'gemini-2.5-flash' şeklindedir."));
-    console.log(chalk.dim("  Değiştirmek için: 'nova model set <model-adı>'"));
+    console.log(theme.brand("  🧠 Mevcut AI Modeli : ") + theme.brand(currentModel));
+    console.log(theme.dim("  Sistemin varsayılan modeli 'gemini-2.5-flash' şeklindedir."));
+    console.log(theme.dim("  Değiştirmek için: 'nova model set <model-adı>'"));
     console.log();
 }

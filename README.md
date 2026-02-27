@@ -148,3 +148,19 @@ Nova prioritizes your system's safety and the absolute privacy of your credentia
 - **Command Blocking (Red Level)**: Operations that destroy the root filesystem, format drives, or perform common malware tactics are completely blocked out of the box. Nova will refuse to execute them even if prompted.
 - **Permission Warnings (Yellow Level)**: Operations requiring elevated privileges (like `sudo`) or modifying system permissions will display an explicit warning tag and require your absolute consent before execution.
 - **Safe Evaluation (Green Level)**: Standard directory traversal, file creation, and status checks are marked as explicitly safe for peace of mind.
+
+## 🎨 Theme & UI Customization
+
+Nova allows you to customize its interface with a variety of color palettes to match your terminal setup perfectly. We have detached from hardcoded colors and built a Custom Theme Engine instead!
+
+**View Themes:**
+```bash
+nova theme list
+```
+*(Displays all available visual themes with a preview: default, dracula, ocean, monokai, hacker)*
+
+**Set a Theme:**
+```bash
+nova theme set <theme-name>
+# Example: nova theme set dracula
+```

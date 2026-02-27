@@ -18,10 +18,12 @@ const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 export interface NovaConfig {
     apiKey?: string;
     model?: string;
+    theme?: string;
 }
 
 const DEFAULT_CONFIG: NovaConfig = {
     model: "gemini-2.5-flash",
+    theme: "default"
 };
 
 // ─── Helpers ───────────────────────────────────────────────
@@ -118,6 +120,22 @@ export function getModel(): string {
  */
 export function setModel(model: string): void {
     setConfig({ model });
+}
+
+/**
+ * Returns the currently active UI Theme.
+ * Defaults to 'default' if not specified.
+ */
+export function getTheme(): string {
+    const config = getConfig();
+    return config.theme || "default";
+}
+
+/**
+ * Saves the preferred UI Theme to the global config.
+ */
+export function setTheme(theme: string): void {
+    setConfig({ theme });
 }
 
 /**

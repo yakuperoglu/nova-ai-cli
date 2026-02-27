@@ -28,8 +28,14 @@ export function executeCommand(
     timeoutMs: number = TIMEOUT_MS
 ): Promise<ExecutionResult> {
     return new Promise((resolve, reject) => {
+        let finalCommand = command;
+        if (process.platform === "win32") {
+            // Force PowerShell to treat all errors as terminating errors and exit with code 1
+            finalCommand = `$ErrorActionPreference = 'Stop'; ${command}`;
+        }
+
         const child = exec(
-            command,
+            finalCommand,
             {
                 timeout: timeoutMs,
                 maxBuffer: 1024 * 1024 * 10, // 10 MB

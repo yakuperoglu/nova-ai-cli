@@ -16,6 +16,7 @@ import { rememberCommand } from "./commands/remember.js";
 import { memoryListCommand, memoryClearCommand, memoryRemoveCommand } from "./commands/memory.js";
 import { modelSetCommand, modelStatusCommand } from "./commands/model.js";
 import { auditCommand } from "./commands/audit.js";
+import { themeSetCommand, themeListCommand } from "./commands/theme.js";
 
 const program = new Command();
 
@@ -132,6 +133,25 @@ modelCmd
     .description("View the currently active AI model")
     .action(() => {
         modelStatusCommand();
+    });
+
+// ─── Theme Customization Command ─────────────────────────────
+const themeCmd = program
+    .command("theme")
+    .description("Switch or view the active Nova UI color theme");
+
+themeCmd
+    .command("set <theme-name>")
+    .description("Set the visual color theme (e.g. ocean, dracula)")
+    .action((themeName: string) => {
+        themeSetCommand(themeName);
+    });
+
+themeCmd
+    .command("list")
+    .description("List all available color themes")
+    .action(() => {
+        themeListCommand();
     });
 
 // Shortcut: `nova auth` → interactive mode, `nova auth <key>` → direct set
