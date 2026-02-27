@@ -11,6 +11,7 @@
 import { Command } from "commander";
 import { askCommand } from "./commands/ask.js";
 import { authCommand, authStatusCommand } from "./commands/auth.js";
+import { resetCommand } from "./commands/reset.js";
 
 const program = new Command();
 
@@ -49,6 +50,13 @@ auth
     .description("Check if an API key is configured")
     .action(async () => {
         await authStatusCommand();
+    });
+
+program
+    .command("reset")
+    .description("Clear Nova's conversational memory (history)")
+    .action(() => {
+        resetCommand();
     });
 
 // Shortcut: `nova auth` → interactive mode, `nova auth <key>` → direct set

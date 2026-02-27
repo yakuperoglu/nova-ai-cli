@@ -17,6 +17,7 @@ import { confirm } from "@inquirer/prompts";
 import { translateToCommand, AIResponse } from "../services/ai.js";
 import { executeCommand } from "../utils/executor.js";
 import { validateCommand, getRiskIcon } from "../utils/security.js";
+import { addMessage } from "../services/history.js";
 
 export async function askCommand(prompt: string): Promise<void> {
     // ─── Validate Input ──────────────────────────────────────
@@ -37,6 +38,10 @@ export async function askCommand(prompt: string): Promise<void> {
     try {
         aiResult = await translateToCommand(prompt);
         spinner.stop();
+
+        // Save conversation context
+        addMessage("user", prompt);
+        addMessage("model", JSON.stringify(aiResult));
     } catch (error) {
         spinner.fail(chalk.red("Failed to reach Nova."));
 
@@ -127,11 +132,12 @@ export async function askCommand(prompt: string): Promise<void> {
         }
 
         if (result.stderr) {
+            // Some programs (like git) print normal info to stderr.
+            // Since the command exited successfully (code 0), we just display it.
             console.log(chalk.yellow(result.stderr));
-            console.log(chalk.red("\n  ⚠ Komut tamamlandı, ancak bazı uyarılar/hatalar oluştu.\n"));
-        } else {
-            console.log(chalk.green("\n  ✔ İşlem başarıyla tamamlandı.\n"));
         }
+
+        console.log(chalk.green("\n  ✔ İşlem başarıyla tamamlandı.\n"));
 
     } catch (error) {
         if (error instanceof Error) {

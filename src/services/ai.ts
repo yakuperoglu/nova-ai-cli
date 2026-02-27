@@ -10,6 +10,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import os from "node:os";
 import { getApiKey } from "./config.js";
 import { sanitizeAIResponse } from "../utils/security.js";
+import { getHistory } from "./history.js";
 
 const MODEL_NAME = "gemini-2.5-flash";
 
@@ -94,7 +95,14 @@ export async function translateToCommand(userPrompt: string): Promise<AIResponse
     let result;
 
     try {
-        result = await model.generateContent(userPrompt);
+        const history = getHistory();
+
+        result = await model.generateContent({
+            contents: [
+                ...history,
+                { role: "user", parts: [{ text: userPrompt }] }
+            ]
+        });
     } catch (err: unknown) {
         if (err instanceof Error) {
             const msg = err.message;
