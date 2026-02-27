@@ -17,6 +17,7 @@ import { memoryListCommand, memoryClearCommand, memoryRemoveCommand } from "./co
 import { modelSetCommand, modelStatusCommand } from "./commands/model.js";
 import { auditCommand } from "./commands/audit.js";
 import { themeSetCommand, themeListCommand } from "./commands/theme.js";
+import { updateCommand } from "./commands/update.js";
 
 const program = new Command();
 
@@ -152,6 +153,15 @@ themeCmd
     .description("List all available color themes")
     .action(() => {
         themeListCommand();
+    });
+
+// ─── Auto-Update Command ─────────────────────────────────────
+program
+    .command("update")
+    .description("Update Nova CLI to the latest version from GitHub")
+    .option("-f, --force", "Force dependency reinstall and full rebuild even if up to date")
+    .action((options) => {
+        updateCommand(options.force);
     });
 
 // Shortcut: `nova auth` → interactive mode, `nova auth <key>` → direct set

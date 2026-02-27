@@ -164,3 +164,15 @@ nova theme list
 nova theme set <theme-name>
 # Example: nova theme set dracula
 ```
+
+## 🔄 Updating Nova
+
+Nova includes a built-in Self-Update mechanism that pulls the latest source code from your Git working directory, installs any dependencies, and rebuilds the TypeScript application seamlessly.
+
+```bash
+# Pulls the latest commits and rebuilds the CLI
+nova update
+
+# Forces a clean package dependency install and rebuild regardless of git status
+nova update -f
+```
