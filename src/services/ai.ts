@@ -8,12 +8,10 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import os from "node:os";
-import { getApiKey } from "./config.js";
+import { getApiKey, getModel } from "./config.js";
 import { sanitizeAIResponse } from "../utils/security.js";
 import { getHistory } from "./history.js";
 import { getMemories } from "./memory.js";
-
-const MODEL_NAME = "gemini-2.5-flash";
 
 export interface AIResponse {
     type: "chat" | "command";
@@ -99,8 +97,10 @@ function getClient(): GoogleGenerativeAI {
 
 export async function translateToCommand(userPrompt: string, attachedFiles: AttachedFile[] = []): Promise<AIResponse> {
     const client = getClient();
+    const activeModel = getModel();
+
     const model = client.getGenerativeModel({
-        model: MODEL_NAME,
+        model: activeModel,
         systemInstruction: getSystemPrompt(),
         generationConfig: {
             responseMimeType: "application/json",

@@ -122,6 +122,16 @@ nova ask "Run the linting script defined in this file" -f package.json
 ```
 Nova reads `package.json`, analyzes it, and outputs exactly `npm run lint` without hallucinating or taking up valuable history memory limits.
 
+### 7. View & Change AI Models
+Nova's core brain is dynamic. You can swap out the AI model powering the CLI at any time (defaults to `gemini-2.5-flash` for max speed).
+```bash
+# Check current active model
+nova model status
+
+# Switch to a stronger model for complex reasoning
+nova model set gemini-2.5-pro
+```
+
 ## Security & Privacy Overview
 
 Nova prioritizes your system's safety and the absolute privacy of your credentials. Every generated command runs through a built-in security validator before it is shown to you.

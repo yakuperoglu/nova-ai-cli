@@ -14,6 +14,7 @@ import { authCommand, authStatusCommand } from "./commands/auth.js";
 import { resetCommand } from "./commands/reset.js";
 import { rememberCommand } from "./commands/remember.js";
 import { memoryListCommand, memoryClearCommand, memoryRemoveCommand } from "./commands/memory.js";
+import { modelSetCommand, modelStatusCommand } from "./commands/model.js";
 
 const program = new Command();
 
@@ -104,6 +105,25 @@ program
         } else {
             memoryListCommand();
         }
+    });
+
+// ─── Model Selection Command ─────────────────────────────────
+const modelCmd = program
+    .command("model")
+    .description("Switch or view the active Google Gemini AI model");
+
+modelCmd
+    .command("set <model-name>")
+    .description("Set the AI model (e.g. gemini-2.5-pro)")
+    .action((modelName: string) => {
+        modelSetCommand(modelName);
+    });
+
+modelCmd
+    .command("status")
+    .description("View the currently active AI model")
+    .action(() => {
+        modelStatusCommand();
     });
 
 // Shortcut: `nova auth` → interactive mode, `nova auth <key>` → direct set

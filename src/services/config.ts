@@ -105,6 +105,22 @@ export function setApiKey(apiKey: string): void {
 }
 
 /**
+ * Returns the currently active Gemini model.
+ * Defaults to 'gemini-2.5-flash' if not specified.
+ */
+export function getModel(): string {
+    const config = getConfig();
+    return config.model || "gemini-2.5-flash";
+}
+
+/**
+ * Saves the preferred Gemini model to the global config.
+ */
+export function setModel(model: string): void {
+    setConfig({ model });
+}
+
+/**
  * Returns the path to the config file (for display purposes).
  */
 export function getConfigPath(): string {
