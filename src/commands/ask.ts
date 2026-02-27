@@ -140,8 +140,29 @@ export async function askCommand(prompt: string): Promise<void> {
         console.log(chalk.green("\n  ✔ İşlem başarıyla tamamlandı.\n"));
 
     } catch (error) {
+        let errorMessage = "Bilinmeyen hata";
         if (error instanceof Error) {
-            console.log(chalk.red(`\n  ✖ Çalıştırma başarısız: ${error.message}\n`));
+            errorMessage = error.message;
+            console.log(chalk.red(`\n  ✖ Çalıştırma başarısız: ${errorMessage}\n`));
+        } else {
+            console.log(chalk.red(`\n  ✖ Çalıştırma başarısız.\n`));
+        }
+
+        try {
+            const shouldFix = await confirm({
+                message: chalk.cyan("Nova'nın bu hatayı analiz edip yeni bir çözüm üretmesini ister misiniz?"),
+                default: true,
+            });
+
+            if (shouldFix) {
+                const fixPrompt = `Çalıştırdığım "${aiResult.command}" komutu şu hatayı verdi:\n${errorMessage}\nBu hatayı düzelten yeni bir komut üret ve açıklamasını yap.`;
+                await askCommand(fixPrompt);
+                return;
+            } else {
+                console.log(chalk.dim("\n  ✖ Otomatik onarım iptal edildi.\n"));
+            }
+        } catch {
+            console.log(chalk.dim("\n  ✖ Çıkış yapıldı.\n"));
         }
 
         process.exit(1);

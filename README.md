@@ -4,6 +4,7 @@ Nova is an intelligent, conversational terminal assistant that translates your n
 
 ## Key Features
 
+- **Auto-Fix (Self-Healing)**: If a generated command fails to execute, Nova intercepts the error and offers to autonomously generate a corrected command.
 - **Conversational Context**: Nova remembers your recent questions and answers, allowing you to ask follow-up questions naturally without losing context.
 - **Persistent Memory**: You can set permanent rules and preferences (e.g., "Always use TypeScript") that Nova will strictly follow for every command it generates.
 - **Built-in Assistant Mode**: Simply typing `nova ?` or `nova help` provides an instant native feature list and guide without using API tokens.
@@ -104,6 +105,14 @@ If you wish to clear this short-term context memory to start fresh:
 ```bash
 nova reset
 ```
+
+### 5. Auto-Fix (Self-Healing Commands)
+If a command you execute fails, Nova will catch the error and offer to fix it for you automatically:
+```bash
+  ✖ Çalıştırma başarısız: Command failed (exit code 1): ...
+? Nova'nın bu hatayı analiz edip yeni bir çözüm üretmesini ister misiniz? (Y/n)
+```
+If you press Enter (Yes), Nova reads the raw error output from your shell and generates a new, corrected command instantly, skipping the need to manually copy-paste logs.
 
 ## Security & Privacy Overview
 
