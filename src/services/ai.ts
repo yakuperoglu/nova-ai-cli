@@ -11,6 +11,7 @@ import os from "node:os";
 import { getApiKey } from "./config.js";
 import { sanitizeAIResponse } from "../utils/security.js";
 import { getHistory } from "./history.js";
+import { getMemories } from "./memory.js";
 
 const MODEL_NAME = "gemini-2.5-flash";
 
@@ -20,11 +21,18 @@ export interface AIResponse {
     command: string;
 }
 
-// ─── System Prompt ─────────────────────────────────────────
 const isWindows = os.platform() === "win32";
 const shellName = isWindows ? "PowerShell" : "bash/zsh";
 
-const SYSTEM_PROMPT = `You are "Nova", a friendly, highly skilled AI terminal assistant.
+function getSystemPrompt(): string {
+    const memories = getMemories();
+    let memorySection = "";
+
+    if (memories.length > 0) {
+        memorySection = `\nKullanıcı Hakkında Kalıcı Bilgiler:\n${memories.map(m => `- ${m}`).join("\n")}\nÇözümlerini üretirken bu kurallara kesinlikle uy.`;
+    }
+
+    return `You are "Nova", a friendly, highly skilled AI terminal assistant.
 
 YOUR MISSION:
 You assist the user with their operating system and terminal. You can either chat conversationally OR provide a single shell command to execute.
@@ -61,10 +69,12 @@ ${isWindows ? `
 ` : `
 - Chain multiple commands with && or semicolons.
 `}
+${memorySection}
 
 ENVIRONMENT:
 - Architecture: ${os.arch()}
 - Home Directory: ${os.homedir()}`;
+}
 
 function getClient(): GoogleGenerativeAI {
     const apiKey = getApiKey();
@@ -86,7 +96,7 @@ export async function translateToCommand(userPrompt: string): Promise<AIResponse
     const client = getClient();
     const model = client.getGenerativeModel({
         model: MODEL_NAME,
-        systemInstruction: SYSTEM_PROMPT,
+        systemInstruction: getSystemPrompt(),
         generationConfig: {
             responseMimeType: "application/json",
         }

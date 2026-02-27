@@ -12,6 +12,8 @@ import { Command } from "commander";
 import { askCommand } from "./commands/ask.js";
 import { authCommand, authStatusCommand } from "./commands/auth.js";
 import { resetCommand } from "./commands/reset.js";
+import { rememberCommand } from "./commands/remember.js";
+import { memoryListCommand, memoryClearCommand } from "./commands/memory.js";
 
 const program = new Command();
 
@@ -57,6 +59,26 @@ program
     .description("Clear Nova's conversational memory (history)")
     .action(() => {
         resetCommand();
+    });
+
+program
+    .command("remember <fact>")
+    .description("Save a persistent rule or preference to Nova's memory")
+    .action((fact) => {
+        rememberCommand(fact);
+    });
+
+program
+    .command("memory")
+    .description("Manage Nova's persistent memory")
+    .option("-l, --list", "List all saved memories/rules")
+    .option("-c, --clear", "Clear all saved memories/rules")
+    .action((options) => {
+        if (options.clear) {
+            memoryClearCommand();
+        } else {
+            memoryListCommand();
+        }
     });
 
 // Shortcut: `nova auth` → interactive mode, `nova auth <key>` → direct set
