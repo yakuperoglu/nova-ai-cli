@@ -142,10 +142,10 @@ export function sanitizeAIResponse(response: string): string {
 export function getRiskIcon(level: RiskLevel): string {
     switch (level) {
         case "blocked":
-            return "🚫";
+            return "";
         case "warning":
-            return "⚠️";
+            return "[WARN]";
         case "safe":
-            return "✅";
+            return "";
     }
 }

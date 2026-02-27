@@ -12,7 +12,7 @@ export function auditCommand(lines: number = 20): void {
     const logs = readLogs(lines);
 
     console.log();
-    console.log(theme.brand("  📝 Nova Audit Trail (Son İşlemler)"));
+    console.log(theme.brand("  Nova Audit Trail (Son İşlemler)"));
     console.log(theme.dim(`  Dosya Konumu: ${getLogPath()}`));
     console.log();
 

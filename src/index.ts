@@ -23,15 +23,15 @@ const program = new Command();
 program
     .name("nova")
     .description(
-        "🚀 Your AI-powered terminal copilot. Translate natural language into executable CLI commands."
+        "Your AI-powered terminal copilot. Translate natural language into executable CLI commands."
     )
     .version("1.0.0", "-v, --version", "Display the current version")
     .addHelpText('after', `
 Features:
-  🧠 Context Memory: Nova remembers your recent conversations for better context.
-  💾 Persistent Memory: Use 'nova remember' to set permanent rules (e.g. "Always use TypeScript").
-  💬 Conversational AI: Ask questions or just say hello, Nova will chat with you.
-  🛡️ Validated Security: Dangerous commands are strictly blocked to protect your system.
+  Context Memory: Nova remembers your recent conversations for better context.
+   Persistent Memory: Use 'nova remember' to set permanent rules (e.g. "Always use TypeScript").
+   Conversational AI: Ask questions or just say hello, Nova will chat with you.
+  Validated Security: Dangerous commands are strictly blocked to protect your system.
 
 Examples:
   $ nova "delete all txt files in this folder" 

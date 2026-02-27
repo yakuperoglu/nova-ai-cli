@@ -26,7 +26,7 @@ import { theme } from "../utils/theme.js";
 export async function askCommand(prompt: string, contextFiles?: string[]): Promise<void> {
     // ─── Validate Input ──────────────────────────────────────
     if (!prompt.trim()) {
-        console.log(theme.error("✖ Please provide a prompt."));
+        console.log(theme.error("[FAIL] Please provide a prompt."));
         console.log(theme.dim('  Example: nova ask "list all files in this folder"'));
         process.exit(1);
     }
@@ -39,16 +39,16 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
             try {
                 const resolvedPath = path.resolve(filePath);
                 if (!fs.existsSync(resolvedPath)) {
-                    console.log(theme.warning(`  ⚠ Uyarı: "${filePath}" bulunamadı, atlanıyor.`));
+                    console.log(theme.warning(`  [WARN] Uyarı: "${filePath}" bulunamadı, atlanıyor.`));
                     continue;
                 }
                 const stat = fs.statSync(resolvedPath);
                 if (stat.isDirectory()) {
-                    console.log(theme.warning(`  ⚠ Uyarı: "${filePath}" bir klasör, atlanıyor.`));
+                    console.log(theme.warning(`  [WARN] Uyarı: "${filePath}" bir klasör, atlanıyor.`));
                     continue;
                 }
                 if (stat.size > 1024 * 1024) { // 1MB limit
-                    console.log(theme.warning(`  ⚠ Uyarı: "${filePath}" çok büyük (>1MB), atlanıyor.`));
+                    console.log(theme.warning(`  [WARN] Uyarı: "${filePath}" çok büyük (>1MB), atlanıyor.`));
                     continue;
                 }
                 const content = fs.readFileSync(resolvedPath, "utf-8");
@@ -56,9 +56,9 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
                     name: path.basename(resolvedPath),
                     content: content
                 });
-                console.log(theme.brand(`  📄 Dosya bağlama eklendi: ${path.basename(resolvedPath)}`));
+                console.log(theme.brand(`   Dosya bağlama eklendi: ${path.basename(resolvedPath)}`));
             } catch (err) {
-                console.log(theme.warning(`  ⚠ Uyarı: "${filePath}" okunamadı, atlanıyor.`));
+                console.log(theme.warning(`  [WARN] Uyarı: "${filePath}" okunamadı, atlanıyor.`));
             }
         }
         if (attachedFiles.length > 0) console.log(); // Spacing
@@ -94,7 +94,7 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
 
     // ─── Display AI Message ─────────────────────────────────
     console.log();
-    console.log(theme.brand("  ✨ Nova: ") + (aiResult.message));
+    console.log(theme.brand("  Nova: ") + (aiResult.message));
     console.log();
 
     // ─── Chat Only Mode ─────────────────────────────────────
@@ -140,7 +140,7 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
     try {
         const confirmMessage =
             validation.level === "warning"
-                ? theme.warning("⚠ Bu komut riskler barındırıyor. Yine de çalıştırılsın mı?")
+                ? theme.warning("[WARN] Bu komut riskler barındırıyor. Yine de çalıştırılsın mı?")
                 : theme.success("Bu işlemi onaylıyor musun?");
 
         const shouldExecute = await confirm({
@@ -149,19 +149,19 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
         });
 
         if (!shouldExecute) {
-            console.log(theme.dim("\n  ✖ İşlem iptal edildi.\n"));
+            console.log(theme.dim("\n  [FAIL] İşlem iptal edildi.\n"));
             appendLog(prompt, aiResult.command, "CANCELLED");
             return;
         }
     } catch {
         // User pressed Ctrl+C
-        console.log(theme.dim("\n  ✖ İşlem iptal edildi.\n"));
+        console.log(theme.dim("\n  [FAIL] İşlem iptal edildi.\n"));
         appendLog(prompt, aiResult.command, "CANCELLED", "User interrupted");
         return;
     }
 
     // ─── Execute Command ────────────────────────────────────
-    console.log(theme.dim("\n  ⏳ İşleniyor...\n"));
+    console.log(theme.dim("\n  [WAIT] İşleniyor...\n"));
 
     try {
         const result = await executeCommand(aiResult.command);
@@ -176,16 +176,16 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
             console.log(theme.warning(result.stderr));
         }
 
-        console.log(theme.success("\n  ✔ İşlem başarıyla tamamlandı.\n"));
+        console.log(theme.success("\n  [OK] İşlem başarıyla tamamlandı.\n"));
         appendLog(prompt, aiResult.command, "SUCCESS");
 
     } catch (error) {
         let errorMessage = "Bilinmeyen hata";
         if (error instanceof Error) {
             errorMessage = error.message;
-            console.log(theme.error(`\n  ✖ Çalıştırma başarısız: ${errorMessage}\n`));
+            console.log(theme.error(`\n  [FAIL] Çalıştırma başarısız: ${errorMessage}\n`));
         } else {
-            console.log(theme.error(`\n  ✖ Çalıştırma başarısız.\n`));
+            console.log(theme.error(`\n  [FAIL] Çalıştırma başarısız.\n`));
         }
 
         appendLog(prompt, aiResult.command, "FAILED", errorMessage);
@@ -201,10 +201,10 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
                 await askCommand(fixPrompt, contextFiles);
                 return;
             } else {
-                console.log(theme.dim("\n  ✖ Otomatik onarım iptal edildi.\n"));
+                console.log(theme.dim("\n  [FAIL] Otomatik onarım iptal edildi.\n"));
             }
         } catch {
-            console.log(theme.dim("\n  ✖ Çıkış yapıldı.\n"));
+            console.log(theme.dim("\n  [FAIL] Çıkış yapıldı.\n"));
         }
 
         process.exit(1);

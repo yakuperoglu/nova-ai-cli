@@ -78,6 +78,6 @@ export function readLogs(limit: number = 20): string[] {
         // Return only the last N lines
         return lines.slice(-limit);
     } catch {
-        return ["⚠ Error reading log file."];
+        return ["[WARN] Error reading log file."];
     }
 }

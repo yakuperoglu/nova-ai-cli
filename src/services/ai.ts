@@ -64,7 +64,7 @@ CRITICAL OS RULES:
 - The user is running on ${os.platform()} (${os.release()})
 - Their shell is exactly: ${shellName}
 ${isWindows ? `
-🚨 WINDOWS POWERSHELL STRICT RULES:
+ WINDOWS POWERSHELL STRICT RULES:
 - You MUST write 100% valid PowerShell syntax.
 - DO NOT use bash idioms like '&&' or '||'. PowerShell 5.1 DOES NOT support '&&'.
 - To chain multiple commands in PowerShell, use ';' instead of '&&'. (Example: cd foo ; ls)
