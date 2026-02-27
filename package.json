@@ -4,6 +4,7 @@
   "description": "Your AI-powered terminal copilot. Translate natural language into executable CLI commands safely and instantly.",
   "main": "dist/index.js",
   "bin": {
+    "nova-ai-cli": "./dist/index.js",
     "nova": "./dist/index.js"
   },
   "type": "module",

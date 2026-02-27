@@ -172,8 +172,8 @@ nova theme set <theme-name>
 npm install -g nova-ai-cli
 
 # OR: Clone and run locally
-git clone https://github.com/yakuperoglu/nova-cli.git
-cd nova-cli
+git clone https://github.com/yakuperoglu/nova-ai-cli.git
+cd nova-ai-cli
 npm install
 npm run build
 npm link
