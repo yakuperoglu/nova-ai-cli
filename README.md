@@ -32,7 +32,7 @@ Nova built on Node.js. If you don't have it installed:
 Open your terminal (Command Prompt or PowerShell on Windows, Terminal on Mac) and copy-paste this line, then press Enter:
 
 ```bash
-npm install -g nova-cli
+npm install -g nova-ai-cli
 ```
 
 ### Step 3: Get Your Free AI Key
