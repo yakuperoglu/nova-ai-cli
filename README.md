@@ -165,6 +165,20 @@ nova theme set <theme-name>
 # Example: nova theme set dracula
 ```
 
+## 🚀 Installation
+
+```bash
+# Global installation from NPM (Once published)
+npm install -g nova-ai-cli
+
+# OR: Clone and run locally
+git clone https://github.com/yakuperoglu/nova-cli.git
+cd nova-cli
+npm install
+npm run build
+npm link
+```
+
 ## 🔄 Updating Nova
 
 Nova includes a built-in Self-Update mechanism that pulls the latest source code from your Git working directory, installs any dependencies, and rebuilds the TypeScript application seamlessly.
