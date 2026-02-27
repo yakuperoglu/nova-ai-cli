@@ -20,6 +20,7 @@ import { translateToCommand, AIResponse, AttachedFile } from "../services/ai.js"
 import { executeCommand } from "../utils/executor.js";
 import { validateCommand, getRiskIcon } from "../utils/security.js";
 import { addMessage } from "../services/history.js";
+import { appendLog } from "../utils/logger.js";
 
 export async function askCommand(prompt: string, contextFiles?: string[]): Promise<void> {
     // ─── Validate Input ──────────────────────────────────────
@@ -148,11 +149,13 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
 
         if (!shouldExecute) {
             console.log(chalk.dim("\n  ✖ İşlem iptal edildi.\n"));
+            appendLog(prompt, aiResult.command, "CANCELLED");
             return;
         }
     } catch {
         // User pressed Ctrl+C
         console.log(chalk.dim("\n  ✖ İşlem iptal edildi.\n"));
+        appendLog(prompt, aiResult.command, "CANCELLED", "User interrupted");
         return;
     }
 
@@ -173,6 +176,7 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
         }
 
         console.log(chalk.green("\n  ✔ İşlem başarıyla tamamlandı.\n"));
+        appendLog(prompt, aiResult.command, "SUCCESS");
 
     } catch (error) {
         let errorMessage = "Bilinmeyen hata";
@@ -182,6 +186,8 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
         } else {
             console.log(chalk.red(`\n  ✖ Çalıştırma başarısız.\n`));
         }
+
+        appendLog(prompt, aiResult.command, "FAILED", errorMessage);
 
         try {
             const shouldFix = await confirm({

@@ -15,6 +15,7 @@ import { resetCommand } from "./commands/reset.js";
 import { rememberCommand } from "./commands/remember.js";
 import { memoryListCommand, memoryClearCommand, memoryRemoveCommand } from "./commands/memory.js";
 import { modelSetCommand, modelStatusCommand } from "./commands/model.js";
+import { auditCommand } from "./commands/audit.js";
 
 const program = new Command();
 
@@ -105,6 +106,13 @@ program
         } else {
             memoryListCommand();
         }
+    });
+
+program
+    .command("audit")
+    .description("View recent commands executed via Nova (Audit Trail)")
+    .action(() => {
+        auditCommand();
     });
 
 // ─── Model Selection Command ─────────────────────────────────

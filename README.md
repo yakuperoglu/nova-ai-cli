@@ -132,6 +132,13 @@ nova model status
 nova model set gemini-2.5-pro
 ```
 
+### 8. View Audit Logs (History of Executions)
+Nova keeps a secure, timestamped record of every command it executes (or that you cancel) so you always have a rollback trail.
+```bash
+nova audit
+```
+*Outputs exactly what was requested, what was run, and the exit status (SUCCESS, FAILED, CANCELLED).*
+
 ## Security & Privacy Overview
 
 Nova prioritizes your system's safety and the absolute privacy of your credentials. Every generated command runs through a built-in security validator before it is shown to you.
