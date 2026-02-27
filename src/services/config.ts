@@ -21,7 +21,7 @@ export interface NovaConfig {
 }
 
 const DEFAULT_CONFIG: NovaConfig = {
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
 };
 
 // ─── Helpers ───────────────────────────────────────────────
