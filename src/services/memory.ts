@@ -78,3 +78,20 @@ export function clearMemories(): void {
     fs.writeFileSync(PROFILE_FILE, JSON.stringify([], null, 2), "utf-8");
     lockdownProfileFile();
 }
+
+/**
+ * Removes a specific memory by its 0-based index.
+ * Returns true if removed, false if the index was invalid.
+ */
+export function removeMemory(index: number): boolean {
+    const memories = getMemories();
+
+    if (index >= 0 && index < memories.length) {
+        memories.splice(index, 1);
+        fs.writeFileSync(PROFILE_FILE, JSON.stringify(memories, null, 2), "utf-8");
+        lockdownProfileFile();
+        return true;
+    }
+
+    return false;
+}
