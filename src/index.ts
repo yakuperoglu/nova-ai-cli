@@ -31,9 +31,9 @@ Features:
   🛡️ Validated Security: Dangerous commands are strictly blocked to protect your system.
 
 Examples:
-  $ nova "bu klasördeki tüm txt dosyalarını sil" 
+  $ nova "delete all txt files in this folder" 
   $ nova ?
-  $ nova remember "Docker kullanmayı tercih ediyorum"
+  $ nova remember "I prefer using Docker"
   $ nova memory -l
   $ nova reset
 `);

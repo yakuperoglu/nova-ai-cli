@@ -105,10 +105,12 @@ If you wish to clear this short-term context memory to start fresh:
 nova reset
 ```
 
-## Security Overview
+## Security & Privacy Overview
 
-Nova prioritizes your system's safety. Every generated command runs through a built-in security validator before it is shown to you.
+Nova prioritizes your system's safety and the absolute privacy of your credentials. Every generated command runs through a built-in security validator before it is shown to you.
 
-- **Blocked**: Operations that destroy the root filesystem, format drives, or perform common malware tactics are completely blocked. Nova will refuse to execute them.
-- **Warning**: Operations requiring elevated privileges or modifying system permissions will display an explicit warning and require your consent.
-- **Safe**: Standard directory traversal, file creation, and status checks.
+- **API Key Privacy (No Middlemen)**: Your Google Gemini API key is stored **strictly locally** on your machine at `~/.nova/config.json`. It is never sent to any third-party telemetry servers or middlemen. Nova communicates with Google's official HTTPS API directly.
+- **Strict File Permissions**: When you authenticate, Nova automatically locks down your configuration file (`chmod 600` on Unix systems), ensuring that only your user account can read or write to the API key file. Masked typing prevents shoulder-surfing during setup.
+- **Command Blocking (Red Level)**: Operations that destroy the root filesystem, format drives, or perform common malware tactics are completely blocked out of the box. Nova will refuse to execute them even if prompted.
+- **Permission Warnings (Yellow Level)**: Operations requiring elevated privileges (like `sudo`) or modifying system permissions will display an explicit warning tag and require your absolute consent before execution.
+- **Safe Evaluation (Green Level)**: Standard directory traversal, file creation, and status checks are marked as explicitly safe for peace of mind.
