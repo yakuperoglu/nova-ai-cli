@@ -15,14 +15,33 @@ const CONFIG_DIR = path.join(os.homedir(), ".nova");
 const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 
 // ─── Types ─────────────────────────────────────────────────
+export type AIProvider = "gemini" | "openai" | "anthropic";
+
+const VALID_PROVIDERS: AIProvider[] = ["gemini", "openai", "anthropic"];
+
+export function normalizeProvider(raw: string | undefined): AIProvider {
+    const v = (raw || "gemini").toLowerCase();
+    return VALID_PROVIDERS.includes(v as AIProvider) ? (v as AIProvider) : "gemini";
+}
+
+export const DEFAULT_MODELS: Record<AIProvider, string> = {
+    gemini: "gemini-2.5-flash",
+    openai: "gpt-4o-mini",
+    anthropic: "claude-3-5-haiku-20241022",
+};
+
 export interface NovaConfig {
+    /** @deprecated Eski yapılandırmalar için; gemini anahtarı burada da tutulabilir */
     apiKey?: string;
+    provider?: AIProvider;
+    /** Sağlayıcı başına API anahtarları */
+    providerApiKeys?: Partial<Record<AIProvider, string>>;
     model?: string;
     theme?: string;
 }
 
 const DEFAULT_CONFIG: NovaConfig = {
-    model: "gemini-2.5-flash",
+    model: DEFAULT_MODELS.gemini,
     theme: "default"
 };
 
@@ -70,7 +89,9 @@ export function getConfig(): NovaConfig {
         const raw = fs.readFileSync(CONFIG_FILE, "utf-8");
         const parsed = JSON.parse(raw) as Partial<NovaConfig>;
 
-        return { ...DEFAULT_CONFIG, ...parsed };
+        const merged = { ...DEFAULT_CONFIG, ...parsed };
+        merged.provider = normalizeProvider(parsed.provider);
+        return merged;
     } catch {
         return { ...DEFAULT_CONFIG };
     }
@@ -92,31 +113,80 @@ export function setConfig(updates: Partial<NovaConfig>): void {
 }
 
 /**
- * Returns the stored API key, or undefined if not set.
+ * Aktif AI sağlayıcısı (varsayılan: gemini — geriye dönük uyumluluk).
+ */
+export function getProvider(): AIProvider {
+    const config = getConfig();
+    return normalizeProvider(config.provider);
+}
+
+function modelMatchesProvider(model: string, p: AIProvider): boolean {
+    const m = model.toLowerCase();
+    if (p === "gemini") return m.includes("gemini");
+    if (p === "openai") {
+        return (
+            m.startsWith("gpt-") ||
+            m.startsWith("o1") ||
+            m.startsWith("o3") ||
+            m.startsWith("chatgpt-") ||
+            m.startsWith("ft:")
+        );
+    }
+    if (p === "anthropic") return m.includes("claude");
+    return true;
+}
+
+/**
+ * Aktif sağlayıcıyı kaydeder. Mevcut model yeni sağlayıcıyla uyumsuzsa varsayılan modele çeker.
+ */
+export function setProvider(provider: AIProvider): void {
+    const current = getConfig();
+    const model = current.model || DEFAULT_MODELS.gemini;
+    const updates: Partial<NovaConfig> = { provider };
+    if (!modelMatchesProvider(model, provider)) {
+        updates.model = DEFAULT_MODELS[provider];
+    }
+    setConfig(updates);
+}
+
+/**
+ * Aktif sağlayıcı için kayıtlı API anahtarı (yoksa undefined).
  */
 export function getApiKey(): string | undefined {
     const config = getConfig();
-    return config.apiKey;
+    const p = getProvider();
+    const named = config.providerApiKeys?.[p];
+    if (named) return named;
+    if (p === "gemini" && config.apiKey) return config.apiKey;
+    return undefined;
 }
 
 /**
- * Saves the API key to the global config.
+ * Belirtilen sağlayıcı için API anahtarını kaydeder. `provider` verilmezse aktif sağlayıcı kullanılır.
  */
-export function setApiKey(apiKey: string): void {
-    setConfig({ apiKey });
+export function setApiKey(apiKey: string, provider?: AIProvider): void {
+    const p = provider ?? getProvider();
+    const current = getConfig();
+    const providerApiKeys = { ...current.providerApiKeys, [p]: apiKey };
+    const updates: Partial<NovaConfig> = { providerApiKeys };
+    if (p === "gemini") {
+        updates.apiKey = apiKey;
+    }
+    setConfig(updates);
 }
 
 /**
- * Returns the currently active Gemini model.
- * Defaults to 'gemini-2.5-flash' if not specified.
+ * Returns the currently active model for the chosen provider.
  */
 export function getModel(): string {
     const config = getConfig();
-    return config.model || "gemini-2.5-flash";
+    const p = getProvider();
+    const fallback = DEFAULT_MODELS[p];
+    return config.model || fallback;
 }
 
 /**
- * Saves the preferred Gemini model to the global config.
+ * Saves the preferred model id to the global config.
  */
 export function setModel(model: string): void {
     setConfig({ model });

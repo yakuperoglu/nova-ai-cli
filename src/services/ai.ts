@@ -1,16 +1,12 @@
 /**
- * AI Service — Gemini Integration
- *
- * Provider : Google Gemini (via @google/generative-ai SDK)
- * Model    : gemini-2.5-flash
- * Endpoint : https://generativelanguage.googleapis.com/v1beta/
+ * AI Service — Gemini, OpenAI ve Anthropic desteği
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import os from "node:os";
-import { getApiKey, getModel } from "./config.js";
+import { getApiKey, getModel, getProvider, type AIProvider } from "./config.js";
 import { sanitizeAIResponse } from "../utils/security.js";
-import { getHistory } from "./history.js";
+import { getHistory, type HistoryMessage } from "./history.js";
 import { getMemories } from "./memory.js";
 
 export interface AIResponse {
@@ -79,87 +75,247 @@ ENVIRONMENT:
 - Home Directory: ${os.homedir()}`;
 }
 
-function getClient(): GoogleGenerativeAI {
-    const apiKey = getApiKey();
-
-    if (!apiKey) {
-        throw new Error(
-            "API key is not configured.\n\n" +
-            "  Please authenticate first:\n" +
-            "    \x1b[36mnova auth <your-api-key>\x1b[0m\n\n" +
-            "  Get your free key from:\n" +
-            "    https://aistudio.google.com/apikey"
-        );
+function missingKeyMessage(provider: AIProvider): string {
+    const lines = [
+        "API anahtarı yapılandırılmamış.",
+        "",
+        "  Kimlik doğrulama:",
+        "    \x1b[36mnova auth\x1b[0m",
+        "    \x1b[36mnova auth set --provider " + provider + " <anahtar>\x1b[0m",
+        "",
+    ];
+    if (provider === "gemini") {
+        lines.push("  Gemini anahtarı: https://aistudio.google.com/apikey");
+    } else if (provider === "openai") {
+        lines.push("  OpenAI anahtarı: https://platform.openai.com/api-keys");
+    } else {
+        lines.push("  Anthropic anahtarı: https://console.anthropic.com/");
     }
-
-    return new GoogleGenerativeAI(apiKey);
+    return lines.join("\n");
 }
 
-export async function translateToCommand(userPrompt: string, attachedFiles: AttachedFile[] = []): Promise<AIResponse> {
-    const client = getClient();
-    const activeModel = getModel();
+function historyToChatRoles(
+    history: HistoryMessage[]
+): Array<{ role: "user" | "assistant"; content: string }> {
+    return history.map(h => ({
+        role: h.role === "model" ? "assistant" : "user",
+        content: h.parts.map(p => p.text).join("\n"),
+    }));
+}
 
+function parseAIResponseJson(text: string): AIResponse {
+    const parsed = JSON.parse(text) as AIResponse;
+
+    if (!parsed.type || !["chat", "command"].includes(parsed.type)) parsed.type = "chat";
+    if (!parsed.message) parsed.message = "Anlaşılmayan bir yanıt aldım.";
+    if (parsed.type === "command" && parsed.command) {
+        parsed.command = sanitizeAIResponse(parsed.command);
+    } else {
+        parsed.command = "";
+    }
+
+    return parsed;
+}
+
+async function translateWithGemini(finalPromptText: string): Promise<AIResponse> {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        throw new Error(missingKeyMessage("gemini"));
+    }
+
+    const client = new GoogleGenerativeAI(apiKey);
+    const activeModel = getModel();
     const model = client.getGenerativeModel({
         model: activeModel,
         systemInstruction: getSystemPrompt(),
         generationConfig: {
             responseMimeType: "application/json",
-        }
+        },
     });
 
+    const history = getHistory();
+
     let result;
-
     try {
-        let finalPromptText = userPrompt;
-
-        if (attachedFiles.length > 0) {
-            finalPromptText += "\n\n--- EKLENEN DOSYA BAĞLAMLARI ---\n";
-            for (const file of attachedFiles) {
-                finalPromptText += `\nDosya: ${file.name}\n\`\`\`\n${file.content}\n\`\`\`\n`;
-            }
-            finalPromptText += "\nYukarıdaki dosya içeriklerini göz önünde bulundurarak işlem yap.\n";
-        }
-
-        const history = getHistory();
-
         result = await model.generateContent({
             contents: [
                 ...history,
-                { role: "user", parts: [{ text: finalPromptText }] }
-            ]
+                { role: "user", parts: [{ text: finalPromptText }] },
+            ],
         });
     } catch (err: unknown) {
         if (err instanceof Error) {
             const msg = err.message;
             if (msg.includes("429") || msg.includes("quota")) {
-                throw new Error("API quota exceeded. Please check your API key limits at https://ai.google.dev/pricing");
+                throw new Error(
+                    "API kotası aşıldı. https://ai.google.dev/pricing adresinden limitleri kontrol edin."
+                );
             } else if (msg.includes("401") || msg.includes("403") || msg.includes("API_KEY_INVALID")) {
-                throw new Error("Invalid or revoked API key. Try running: nova auth <new-key>");
+                throw new Error("Geçersiz veya iptal edilmiş API anahtarı. 'nova auth' ile yeni anahtar girin.");
             }
         }
         throw err;
     }
 
     const text = result.response.text().trim();
-
     if (!text) {
-        throw new Error("AI returned an empty response. Please try rephrasing your request.");
+        throw new Error("AI boş yanıt döndü. İsteğinizi yeniden ifade etmeyi deneyin.");
     }
 
     try {
-        const parsed = JSON.parse(text) as AIResponse;
+        return parseAIResponseJson(text);
+    } catch {
+        throw new Error(`AI yanıtı çözümlenemedi. Ham çıktı: ${text}`);
+    }
+}
 
-        // Ensure structure is correct
-        if (!parsed.type || !["chat", "command"].includes(parsed.type)) parsed.type = "chat";
-        if (!parsed.message) parsed.message = "Anlaşılmayan bir yanıt aldım.";
-        if (parsed.type === "command" && parsed.command) {
-            parsed.command = sanitizeAIResponse(parsed.command);
-        } else {
-            parsed.command = "";
+async function translateWithOpenAI(finalPromptText: string): Promise<AIResponse> {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        throw new Error(missingKeyMessage("openai"));
+    }
+
+    const systemPrompt = getSystemPrompt();
+    const history = getHistory();
+    const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+        { role: "system", content: systemPrompt },
+        ...historyToChatRoles(history).map(m => ({
+            role: m.role,
+            content: m.content,
+        })),
+        { role: "user", content: finalPromptText },
+    ];
+
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+            model: getModel(),
+            messages,
+            response_format: { type: "json_object" },
+        }),
+    });
+
+    const raw = await res.text();
+    if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+            throw new Error("OpenAI API anahtarı geçersiz. 'nova auth set --provider openai <anahtar>' deneyin.");
         }
+        if (res.status === 429) {
+            throw new Error("OpenAI kotası veya hız limiti. Hesap limitlerinizi kontrol edin.");
+        }
+        throw new Error(`OpenAI hatası (${res.status}): ${raw.slice(0, 500)}`);
+    }
 
-        return parsed;
-    } catch (e) {
-        throw new Error(`Failed to parse AI response. Raw output: ${text}`);
+    let data: { choices?: Array<{ message?: { content?: string } }> };
+    try {
+        data = JSON.parse(raw) as typeof data;
+    } catch {
+        throw new Error(`OpenAI yanıtı JSON değil: ${raw.slice(0, 200)}`);
+    }
+
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) {
+        throw new Error("OpenAI boş içerik döndü.");
+    }
+
+    try {
+        return parseAIResponseJson(text);
+    } catch {
+        throw new Error(`AI yanıtı çözümlenemedi. Ham çıktı: ${text}`);
+    }
+}
+
+async function translateWithAnthropic(finalPromptText: string): Promise<AIResponse> {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        throw new Error(missingKeyMessage("anthropic"));
+    }
+
+    const systemPrompt = getSystemPrompt();
+    const history = getHistory();
+    const messages = [
+        ...historyToChatRoles(history).map(m => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+        })),
+        { role: "user" as const, content: finalPromptText },
+    ];
+
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+            model: getModel(),
+            max_tokens: 8192,
+            system: systemPrompt,
+            messages,
+        }),
+    });
+
+    const raw = await res.text();
+    if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+            throw new Error(
+                "Anthropic API anahtarı geçersiz. 'nova auth set --provider anthropic <anahtar>' deneyin."
+            );
+        }
+        if (res.status === 429) {
+            throw new Error("Anthropic kotası veya hız limiti.");
+        }
+        throw new Error(`Anthropic hatası (${res.status}): ${raw.slice(0, 500)}`);
+    }
+
+    let data: { content?: Array<{ type: string; text?: string }> };
+    try {
+        data = JSON.parse(raw) as typeof data;
+    } catch {
+        throw new Error(`Anthropic yanıtı JSON değil: ${raw.slice(0, 200)}`);
+    }
+
+    const textBlock = data.content?.find(c => c.type === "text");
+    const text = textBlock?.text?.trim();
+    if (!text) {
+        throw new Error("Anthropic boş metin döndü.");
+    }
+
+    try {
+        return parseAIResponseJson(text);
+    } catch {
+        throw new Error(`AI yanıtı çözümlenemedi. Ham çıktı: ${text}`);
+    }
+}
+
+export async function translateToCommand(
+    userPrompt: string,
+    attachedFiles: AttachedFile[] = []
+): Promise<AIResponse> {
+    let finalPromptText = userPrompt;
+
+    if (attachedFiles.length > 0) {
+        finalPromptText += "\n\n--- EKLENEN DOSYA BAĞLAMLARI ---\n";
+        for (const file of attachedFiles) {
+            finalPromptText += `\nDosya: ${file.name}\n\`\`\`\n${file.content}\n\`\`\`\n`;
+        }
+        finalPromptText += "\nYukarıdaki dosya içeriklerini göz önünde bulundurarak işlem yap.\n";
+    }
+
+    const provider = getProvider();
+
+    switch (provider) {
+        case "openai":
+            return translateWithOpenAI(finalPromptText);
+        case "anthropic":
+            return translateWithAnthropic(finalPromptText);
+        case "gemini":
+        default:
+            return translateWithGemini(finalPromptText);
     }
 }

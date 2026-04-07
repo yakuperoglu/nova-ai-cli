@@ -15,6 +15,7 @@ import { resetCommand } from "./commands/reset.js";
 import { rememberCommand } from "./commands/remember.js";
 import { memoryListCommand, memoryClearCommand, memoryRemoveCommand } from "./commands/memory.js";
 import { modelSetCommand, modelStatusCommand } from "./commands/model.js";
+import { providerSetCommand, providerStatusCommand } from "./commands/provider.js";
 import { auditCommand } from "./commands/audit.js";
 import { themeSetCommand, themeListCommand } from "./commands/theme.js";
 import { updateCommand } from "./commands/update.js";
@@ -34,12 +35,24 @@ Features:
    Conversational AI: Ask questions or just say hello, Nova will chat with you.
   Validated Security: Dangerous commands are strictly blocked to protect your system.
 
+AI sağlayıcıları (Gemini, OpenAI, Anthropic):
+  nova provider status              Aktif sağlayıcıyı göster
+  nova provider set <ad>            gemini | openai | anthropic
+  nova auth                         Anahtarı gizli gir; biçimden sağlayıcı tahmini
+  nova auth <anahtar>               Aynı (argümanlı; shell geçmişine düşebilir)
+  nova auth set [--provider <ad>] [anahtar]
+                                    --provider yoksa anahtar önekine göre tahmin:
+                                    sk-ant… → Anthropic, sk-… → OpenAI, diğer → Gemini
+  nova auth status                  Anahtar / config özeti
+
 Examples:
   $ nova "delete all txt files in this folder" 
   $ nova ?
   $ nova remember "I prefer using Docker"
   $ nova memory -l
   $ nova reset
+  $ nova auth set
+  $ nova provider set openai
 `);
 
 // ─── Default Command: ask ────────────────────────────────────
@@ -63,14 +76,20 @@ program
 // ─── Auth Command ────────────────────────────────────────────
 const auth = program
     .command("auth")
-    .description("Manage your API key for AI services");
+    .description("Manage API keys for AI providers (Gemini, OpenAI, Anthropic)");
 
 auth
     .command("set")
-    .description("Save your Gemini API key (stored in ~/.nova/config.json)")
-    .argument("<api-key>", "Your Gemini API key")
-    .action(async (apiKey: string) => {
-        await authCommand(apiKey);
+    .description(
+        "API anahtarını kaydet; --provider yoksa anahtar biçiminden sağlayıcı tahmin edilir ve aktif yapılır"
+    )
+    .option(
+        "-p, --provider <name>",
+        "gemini | openai | anthropic (zorla; yoksa sk-ant… / sk-… / diğer → tahmin)"
+    )
+    .argument("[api-key]", "İsteğe bağlı; verilmezse güvenli (maskeli) sorulur")
+    .action(async (apiKey: string | undefined, options: { provider?: string }) => {
+        await authCommand(apiKey, { provider: options.provider });
     });
 
 auth
@@ -120,11 +139,11 @@ program
 // ─── Model Selection Command ─────────────────────────────────
 const modelCmd = program
     .command("model")
-    .description("Switch or view the active Google Gemini AI model");
+    .description("Switch or view the active AI model id (sağlayıcıya göre değişir)");
 
 modelCmd
     .command("set <model-name>")
-    .description("Set the AI model (e.g. gemini-2.5-pro)")
+    .description("Model id (örn. gemini-2.5-pro, gpt-4o, claude-3-5-sonnet-20241022)")
     .action((modelName: string) => {
         modelSetCommand(modelName);
     });
@@ -166,9 +185,27 @@ program
 
 // Shortcut: `nova auth` → interactive mode, `nova auth <key>` → direct set
 auth
-    .argument("[api-key]", "Your Gemini API key (if omitted, prompts interactively)")
-    .action(async (apiKey: string | undefined) => {
-        await authCommand(apiKey);
+    .argument("[api-key]", "API anahtarı (yoksa maskeli sorulur; biçimden sağlayıcı tahmini)")
+    .option("-p, --provider <name>", "gemini | openai | anthropic (zorla; yoksa tahmin)")
+    .action(async (apiKey: string | undefined, options: { provider?: string }) => {
+        await authCommand(apiKey, { provider: options.provider });
+    });
+
+// ─── Provider (Gemini / OpenAI / Anthropic) ─────────────────
+const providerCmd = program.command("provider").description("Aktif AI sağlayıcısını seç veya görüntüle");
+
+providerCmd
+    .command("set <name>")
+    .description("Aktif sağlayıcıyı ayarla: gemini, openai veya anthropic")
+    .action((name: string) => {
+        providerSetCommand(name);
+    });
+
+providerCmd
+    .command("status")
+    .description("Şu anki aktif sağlayıcıyı göster")
+    .action(() => {
+        providerStatusCommand();
     });
 
 // ─── Parse & Execute ─────────────────────────────────────────

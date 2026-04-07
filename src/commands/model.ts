@@ -1,17 +1,17 @@
 /**
- * Model Command
- *
- * Allows the user to switch the under-the-hood Google Gemini model.
- * Defaults to: gemini-2.5-flash
+ * Model Command — aktif sağlayıcıya göre model id
  */
 
-import chalk from "chalk";
-import { setModel, getModel } from "../services/config.js";
+import { setModel, getModel, getProvider, DEFAULT_MODELS } from "../services/config.js";
 import { theme } from "../utils/theme.js";
 
 export function modelSetCommand(modelName: string): void {
     if (!modelName || modelName.trim() === "") {
-        console.log(theme.error("[FAIL] Lütfen geçerli bir model adı girin (Örn: gemini-2.5-pro)"));
+        console.log(
+            theme.error(
+                "[FAIL] Geçerli bir model id girin (örn. gemini-2.5-pro, gpt-4o-mini, claude-3-5-haiku-20241022)"
+            )
+        );
         return;
     }
 
@@ -26,10 +26,13 @@ export function modelSetCommand(modelName: string): void {
 
 export function modelStatusCommand(): void {
     const currentModel = getModel();
+    const p = getProvider();
+    const def = DEFAULT_MODELS[p];
 
     console.log();
-    console.log(theme.brand("  Mevcut AI Modeli : ") + theme.brand(currentModel));
-    console.log(theme.dim("  Sistemin varsayılan modeli 'gemini-2.5-flash' şeklindedir."));
-    console.log(theme.dim("  Değiştirmek için: 'nova model set <model-adı>'"));
+    console.log(theme.brand("  Sağlayıcı: ") + theme.brand(p));
+    console.log(theme.brand("  Mevcut model: ") + theme.brand(currentModel));
+    console.log(theme.dim(`  Bu sağlayıcı için önerilen varsayılan: ${def}`));
+    console.log(theme.dim("  Değiştirmek için: nova model set <model-id>"));
     console.log();
 }
