@@ -1,17 +1,14 @@
 /**
- * Model Command — aktif sağlayıcıya göre model id
+ * Model Command — switch or view the active AI model id
  */
 
 import { setModel, getModel, getProvider, DEFAULT_MODELS } from "../services/config.js";
 import { theme } from "../utils/theme.js";
+import { t } from "../utils/i18n.js";
 
 export function modelSetCommand(modelName: string): void {
     if (!modelName || modelName.trim() === "") {
-        console.log(
-            theme.error(
-                "[FAIL] Geçerli bir model id girin (örn. gemini-2.5-pro, gpt-4o-mini, claude-3-5-haiku-20241022)"
-            )
-        );
+        console.log(theme.error(`[FAIL] ${t("model.emptyName")}`));
         return;
     }
 
@@ -19,8 +16,8 @@ export function modelSetCommand(modelName: string): void {
     setModel(cleanModel);
 
     console.log();
-    console.log(theme.success(`  [OK] Active model changed successfully: `) + theme.brand(cleanModel));
-    console.log(theme.dim(`  All commands and chats will now be processed using this model.`));
+    console.log(theme.success(`  [OK] ${t("model.changeSuccess", { model: cleanModel })}`));
+    console.log(theme.dim(`  ${t("model.changeHint")}`));
     console.log();
 }
 
@@ -30,9 +27,9 @@ export function modelStatusCommand(): void {
     const def = DEFAULT_MODELS[p];
 
     console.log();
-    console.log(theme.brand("  Sağlayıcı: ") + theme.brand(p));
-    console.log(theme.brand("  Mevcut model: ") + theme.brand(currentModel));
-    console.log(theme.dim(`  Bu sağlayıcı için önerilen varsayılan: ${def}`));
-    console.log(theme.dim("  Değiştirmek için: nova model set <model-id>"));
+    console.log(theme.brand(`  ${t("model.providerLabel", { provider: p })}`));
+    console.log(theme.brand(`  ${t("model.currentModel", { model: currentModel })}`));
+    console.log(theme.dim(`  ${t("model.defaultModel", { model: def })}`));
+    console.log(theme.dim(`  ${t("model.changeCmd")}`));
     console.log();
 }

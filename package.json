@@ -1,6 +1,6 @@
 {
   "name": "nova-ai-cli",
-  "version": "1.1.1",
+  "version": "2.1.1",
   "description": "Your AI-powered terminal copilot. Translate natural language into executable CLI commands safely and instantly.",
   "main": "dist/index.js",
   "bin": {
@@ -12,6 +12,8 @@
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -30,7 +32,6 @@
     "@google/generative-ai": "^0.21.0",
     "chalk": "^5.4.1",
     "commander": "^13.1.0",
-    "dotenv": "^16.4.7",
     "inquirer": "^12.4.2",
     "ora": "^8.2.0"
   },
@@ -38,7 +39,8 @@
     "@types/inquirer": "^9.0.7",
     "@types/node": "^22.13.4",
     "tsx": "^4.19.3",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.4"
   },
   "engines": {
     "node": ">=18.0.0"

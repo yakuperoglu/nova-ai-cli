@@ -3,22 +3,31 @@
 /**
  * Nova CLI — Entry Point
  *
- * Sets up the Commander program and registers commands:
- *   - ask (default): Translate natural language → shell command
- *   - auth: Save/check API key in global config
+ * Sets up the Commander program and registers all commands.
  */
 
+import { createRequire } from "node:module";
 import { Command } from "commander";
+
+const require = createRequire(import.meta.url);
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { version: PKG_VERSION } = require("../package.json") as { version: string };
+
 import { askCommand } from "./commands/ask.js";
 import { authCommand, authStatusCommand } from "./commands/auth.js";
 import { resetCommand } from "./commands/reset.js";
 import { rememberCommand } from "./commands/remember.js";
 import { memoryListCommand, memoryClearCommand, memoryRemoveCommand } from "./commands/memory.js";
 import { modelSetCommand, modelStatusCommand } from "./commands/model.js";
-import { providerSetCommand, providerStatusCommand } from "./commands/provider.js";
+import {
+    providerSetCommand,
+    providerStatusCommand,
+    providerListPresetsCommand,
+} from "./commands/provider.js";
 import { auditCommand } from "./commands/audit.js";
 import { themeSetCommand, themeListCommand } from "./commands/theme.js";
 import { updateCommand } from "./commands/update.js";
+import { langSetCommand, langStatusCommand } from "./commands/lang.js";
 
 const program = new Command();
 
@@ -27,33 +36,96 @@ program
     .description(
         "Your AI-powered terminal copilot. Translate natural language into executable CLI commands."
     )
-    .version("1.0.0", "-v, --version", "Display the current version")
-    .addHelpText('after', `
-Features:
-  Context Memory: Nova remembers your recent conversations for better context.
-   Persistent Memory: Use 'nova remember' to set permanent rules (e.g. "Always use TypeScript").
-   Conversational AI: Ask questions or just say hello, Nova will chat with you.
-  Validated Security: Dangerous commands are strictly blocked to protect your system.
+    .version(PKG_VERSION, "-v, --version", "Display the current version")
+    .addHelpText(
+        "after",
+        `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ QUICK START
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1) nova auth                        Enter API key (provider is auto-detected)
+  2) nova "list all files"            Natural language → command → confirm → run
 
-AI sağlayıcıları (Gemini, OpenAI, Anthropic):
-  nova provider status              Aktif sağlayıcıyı göster
-  nova provider set <ad>            gemini | openai | anthropic
-  nova auth                         Anahtarı gizli gir; biçimden sağlayıcı tahmini
-  nova auth <anahtar>               Aynı (argümanlı; shell geçmişine düşebilir)
-  nova auth set [--provider <ad>] [anahtar]
-                                    --provider yoksa anahtar önekine göre tahmin:
-                                    sk-ant… → Anthropic, sk-… → OpenAI, diğer → Gemini
-  nova auth status                  Anahtar / config özeti
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ AI PROVIDERS  (Gemini · OpenAI · Anthropic)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  nova provider status                Active provider and base URL
+  nova provider set gemini            Google Gemini (default)
+  nova provider set openai            OpenAI (GPT series)
+  nova provider set anthropic         Anthropic (Claude series)
+  nova provider presets               List OpenAI-compatible presets
 
-Examples:
-  $ nova "delete all txt files in this folder" 
+  OpenAI-compatible (local/cloud):
+  nova provider set openai --preset groq       Groq  (Llama, Mixtral)
+  nova provider set openai --preset ollama     Ollama (localhost:11434)
+  nova provider set openai --preset lmstudio   LM Studio (localhost:1234)
+  nova provider set openai --preset together   Together AI
+  nova provider set openai --base-url <url>    Custom endpoint
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ AUTHENTICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  nova auth                           Masked input — provider inferred from key
+  nova auth set                       Same as above (subcommand form)
+  nova auth set -p openai <key>       Save key for a specific provider
+  nova auth status                    Key status for all providers
+
+  Key detection: sk-ant… → Anthropic · sk-… → OpenAI · AIza… / other → Gemini
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ MODEL SELECTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  nova model status                   Active provider + model
+  nova model set gemini-2.5-pro       Gemini Pro
+  nova model set gpt-4o               OpenAI GPT-4o
+  nova model set claude-3-5-sonnet-20241022    Claude Sonnet
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ MEMORY & CONTEXT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  nova remember "Always use TypeScript"   Add a persistent rule
+  nova memory -l                      List all saved rules
+  nova memory -r <number>             Delete a specific rule
+  nova memory -c                      Clear all rules
+  nova reset                          Reset session history
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ LANGUAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  nova lang                           Show current language setting
+  nova lang set en                    Switch to English (default)
+  nova lang set tr                    Switch to Turkish (Türkçe)
+
+  Controls both CLI output language and AI response language.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ SECURITY & AUDIT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  nova audit                          Recent commands (success / fail / cancel)
+  Blocked:  rm -rf /, format, EncodedCommand, eval+fetch, reverse shells…
+  Warning:  sudo, chmod 777, kill -9, registry changes…
+  Redacted: API keys are masked before being written to audit logs.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ THEMES & UPDATES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  nova theme list                     Available themes (default, dracula, ocean…)
+  nova theme set dracula              Switch UI theme
+  nova update                         Update to latest version (git pull + build)
+  nova update -f                      Force rebuild
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ EXAMPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  $ nova "delete all .log files in this folder"
+  $ nova ask "git log last 5 commits" -f package.json
+  $ nova remember "Always use Docker"
+  $ nova provider set openai --preset groq
+  $ nova model set llama-3.3-70b-versatile
+  $ nova auth
   $ nova ?
-  $ nova remember "I prefer using Docker"
-  $ nova memory -l
-  $ nova reset
-  $ nova auth set
-  $ nova provider set openai
-`);
+`
+    );
 
 // ─── Default Command: ask ────────────────────────────────────
 program
@@ -64,7 +136,6 @@ program
     .action(async (promptParts: string[], options: { file?: string[] }) => {
         const prompt = promptParts.join(" ").trim();
 
-        // Intercept help/question marks to avoid unnecessary AI API calls
         if (prompt === "?" || prompt.toLowerCase() === "help") {
             program.help();
             return;
@@ -78,48 +149,56 @@ const auth = program
     .command("auth")
     .description("Manage API keys for AI providers (Gemini, OpenAI, Anthropic)");
 
-auth
-    .command("set")
+auth.command("set")
     .description(
-        "API anahtarını kaydet; --provider yoksa anahtar biçiminden sağlayıcı tahmin edilir ve aktif yapılır"
+        "Save an API key; provider is inferred from key format unless --provider is given"
     )
     .option(
         "-p, --provider <name>",
-        "gemini | openai | anthropic (zorla; yoksa sk-ant… / sk-… / diğer → tahmin)"
+        "gemini | openai | anthropic (explicit; otherwise inferred from sk-ant… / sk-… / other)"
     )
-    .argument("[api-key]", "İsteğe bağlı; verilmezse güvenli (maskeli) sorulur")
+    .argument("[api-key]", "Optional; if omitted you will be prompted securely (masked)")
     .action(async (apiKey: string | undefined, options: { provider?: string }) => {
         await authCommand(apiKey, { provider: options.provider });
     });
 
-auth
-    .command("status")
-    .description("Check if an API key is configured")
+auth.command("status")
+    .description("Check if an API key is configured for the active provider")
     .action(async () => {
         await authStatusCommand();
     });
 
+// Shortcut: `nova auth` → interactive, `nova auth <key>` → direct set
+auth.argument("[api-key]", "API key (optional; prompts securely if omitted)")
+    .option("-p, --provider <name>", "gemini | openai | anthropic (explicit; otherwise inferred)")
+    .action(async (apiKey: string | undefined, options: { provider?: string }) => {
+        await authCommand(apiKey, { provider: options.provider });
+    });
+
+// ─── Reset Command ───────────────────────────────────────────
 program
     .command("reset")
-    .description("Clear Nova's conversational memory (history)")
+    .description("Clear Nova's conversational memory (session history)")
     .action(() => {
         resetCommand();
     });
 
+// ─── Remember Command ────────────────────────────────────────
 program
     .command("remember <fact>")
     .description("Save a persistent rule or preference to Nova's memory")
-    .action((fact) => {
+    .action(fact => {
         rememberCommand(fact);
     });
 
+// ─── Memory Command ──────────────────────────────────────────
 program
     .command("memory")
-    .description("Manage Nova's persistent memory")
-    .option("-l, --list", "List all saved memories/rules")
-    .option("-c, --clear", "Clear all saved memories/rules")
-    .option("-r, --remove <index>", "Remove a specific memory by its 1-based index")
-    .action((options) => {
+    .description("Manage Nova's persistent rules and memory")
+    .option("-l, --list", "List all saved rules")
+    .option("-c, --clear", "Clear all saved rules")
+    .option("-r, --remove <index>", "Remove a specific rule by its 1-based index")
+    .action(options => {
         if (options.clear) {
             memoryClearCommand();
         } else if (options.remove) {
@@ -129,6 +208,7 @@ program
         }
     });
 
+// ─── Audit Command ───────────────────────────────────────────
 program
     .command("audit")
     .description("View recent commands executed via Nova (Audit Trail)")
@@ -139,23 +219,23 @@ program
 // ─── Model Selection Command ─────────────────────────────────
 const modelCmd = program
     .command("model")
-    .description("Switch or view the active AI model id (sağlayıcıya göre değişir)");
+    .description("Switch or view the active AI model id");
 
 modelCmd
     .command("set <model-name>")
-    .description("Model id (örn. gemini-2.5-pro, gpt-4o, claude-3-5-sonnet-20241022)")
+    .description("Model id (e.g. gemini-2.5-pro, gpt-4o, claude-3-5-sonnet-20241022)")
     .action((modelName: string) => {
         modelSetCommand(modelName);
     });
 
 modelCmd
     .command("status")
-    .description("View the currently active AI model")
+    .description("View the currently active AI model and provider")
     .action(() => {
         modelStatusCommand();
     });
 
-// ─── Theme Customization Command ─────────────────────────────
+// ─── Theme Command ───────────────────────────────────────────
 const themeCmd = program
     .command("theme")
     .description("Switch or view the active Nova UI color theme");
@@ -178,35 +258,62 @@ themeCmd
 program
     .command("update")
     .description("Update Nova CLI to the latest version from GitHub")
-    .option("-f, --force", "Force dependency reinstall and full rebuild even if up to date")
-    .action((options) => {
+    .option("-f, --force", "Force dependency reinstall and full rebuild even if already up to date")
+    .action(options => {
         updateCommand(options.force);
     });
 
-// Shortcut: `nova auth` → interactive mode, `nova auth <key>` → direct set
-auth
-    .argument("[api-key]", "API anahtarı (yoksa maskeli sorulur; biçimden sağlayıcı tahmini)")
-    .option("-p, --provider <name>", "gemini | openai | anthropic (zorla; yoksa tahmin)")
-    .action(async (apiKey: string | undefined, options: { provider?: string }) => {
-        await authCommand(apiKey, { provider: options.provider });
-    });
-
-// ─── Provider (Gemini / OpenAI / Anthropic) ─────────────────
-const providerCmd = program.command("provider").description("Aktif AI sağlayıcısını seç veya görüntüle");
+// ─── Provider Command ────────────────────────────────────────
+const providerCmd = program
+    .command("provider")
+    .description("Select or view the active AI provider");
 
 providerCmd
     .command("set <name>")
-    .description("Aktif sağlayıcıyı ayarla: gemini, openai veya anthropic")
-    .action((name: string) => {
-        providerSetCommand(name);
+    .description("Set active provider: gemini, openai, or anthropic")
+    .option("--preset <name>", "OpenAI-compatible preset: groq, ollama, lmstudio, together")
+    .option("--base-url <url>", "Custom OpenAI-compatible endpoint URL (for openai provider)")
+    .action((name: string, opts: { preset?: string; baseUrl?: string }) => {
+        providerSetCommand(name, opts);
     });
 
 providerCmd
     .command("status")
-    .description("Şu anki aktif sağlayıcıyı göster")
+    .description("Show the currently active provider and its configuration")
     .action(() => {
         providerStatusCommand();
     });
+
+providerCmd
+    .command("presets")
+    .description("List available OpenAI-compatible presets (Groq, Ollama, LM Studio, Together)")
+    .action(() => {
+        providerListPresetsCommand();
+    });
+
+// ─── Language Command ────────────────────────────────────────
+const langCmd = program
+    .command("lang")
+    .description("Set the CLI display language and AI response language (en | tr)");
+
+langCmd
+    .command("set <language>")
+    .description("Set language: en (English, default) or tr (Turkish)")
+    .action((lang: string) => {
+        langSetCommand(lang);
+    });
+
+langCmd
+    .command("status")
+    .description("Show the current language setting")
+    .action(() => {
+        langStatusCommand();
+    });
+
+// Show lang status when `nova lang` is called with no subcommand
+langCmd.action(() => {
+    langStatusCommand();
+});
 
 // ─── Parse & Execute ─────────────────────────────────────────
 program.parse(process.argv);

@@ -1,62 +1,69 @@
 /**
- * Memory Command
- *
- * Manages (lists or clears) Nova's persistent preferences.
+ * Memory Command — view, clear, or remove individual rules
+ * in Nova's persistent memory.
  */
 
 import { getMemories, clearMemories, removeMemory } from "../services/memory.js";
 import { theme } from "../utils/theme.js";
+import { t } from "../utils/i18n.js";
 
-export function memoryListCommand(): void {
+export async function memoryListCommand(): Promise<void> {
     try {
-        const memories = getMemories();
-
+        const memories = await getMemories();
         if (memories.length === 0) {
-            console.log(theme.dim("\n  [INFO] Nova's persistent memory is currently empty.\n"));
-            console.log(theme.dim('  To add a new rule: nova remember "Her zaman TypeScript kullan"'));
+            console.log();
+            console.log(theme.dim(`  ${t("memory.empty")}`));
+            console.log(theme.dim(`  ${t("memory.emptyHint")}`));
+            console.log();
             return;
         }
 
-        console.log(theme.brand("\n  Nova's Persistent Memory:\n"));
-        memories.forEach((mem, index) => {
-            console.log(`  ${index + 1}. ${mem}`);
+        console.log();
+        console.log(theme.brand(`  ${t("memory.title")}`));
+        console.log();
+        memories.forEach((m, i) => {
+            console.log(`  ${theme.brand(`${i + 1}.`)} ${m}`);
         });
         console.log();
-    } catch (error) {
-        console.log(theme.error("\n  [FAIL] Error reading memory.\n"));
+    } catch {
+        console.log(theme.error(`[FAIL] ${t("memory.readError")}`));
     }
 }
 
 export function memoryClearCommand(): void {
     try {
         clearMemories();
-        console.log(theme.success("\n  [OK] Persistent memory cleared successfully. Nova won't remember previous rules.\n"));
-    } catch (error) {
-        console.log(theme.error("\n  [FAIL] Error clearing memory.\n"));
+        console.log();
+        console.log(theme.success(`  [OK] ${t("memory.clearSuccess")}`));
+        console.log();
+    } catch {
+        console.log(theme.error(`[FAIL] ${t("memory.clearError")}`));
     }
 }
 
-export function memoryRemoveCommand(indexArg: string): void {
-    try {
-        const index = parseInt(indexArg, 10) - 1; // Convert to 0-based index
+export async function memoryRemoveCommand(index: string): Promise<void> {
+    const idx = parseInt(index, 10);
+    if (isNaN(idx) || idx < 1) {
+        console.log(theme.error(`[FAIL] ${t("memory.invalidIndex")}`));
+        return;
+    }
 
-        if (isNaN(index)) {
-            console.log(theme.error("\n  [FAIL] Please enter a valid number. (e.g.: nova memory --remove 1)\n"));
+    try {
+        const memories = await getMemories();
+        const target = memories[idx - 1];
+        if (!target) {
+            console.log(
+                theme.error(`[FAIL] ${t("memory.removeNotFound", { index: String(idx) })}`)
+            );
+            console.log(theme.dim(`  ${t("memory.removeHint")}`));
             return;
         }
 
-        const memories = getMemories();
-        const removedItem = memories[index]; // Save for the success message
-
-        const success = removeMemory(index);
-
-        if (success) {
-            console.log(theme.success(`\n  [OK] Rule deleted successfully: "${removedItem}"\n`));
-        } else {
-            console.log(theme.error(`\n  [FAIL] ${indexArg} rule number not found.\n`));
-            console.log(theme.dim("  To see existing rules: nova memory --list\n"));
-        }
-    } catch (error) {
-        console.log(theme.error("\n  [FAIL] Error deleting rule.\n"));
+        await removeMemory(idx - 1);
+        console.log();
+        console.log(theme.success(`  [OK] ${t("memory.removeSuccess", { rule: target })}`));
+        console.log();
+    } catch {
+        console.log(theme.error(`[FAIL] ${t("memory.removeError")}`));
     }
 }

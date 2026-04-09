@@ -1,28 +1,27 @@
 /**
- * Remember Command
- *
- * Adds a persistent rule/preference to Nova's memory.
+ * Remember Command — add a new rule to Nova's persistent memory
  */
 
-import chalk from "chalk";
 import { addMemory } from "../services/memory.js";
 import { theme } from "../utils/theme.js";
+import { t } from "../utils/i18n.js";
 
-export function rememberCommand(fact: string): void {
-    if (!fact || !fact.trim()) {
-        console.log(theme.error("\n  [FAIL] Please type the rule you want me to remember."));
-        console.log(theme.dim('  Example: nova remember "Her zaman TypeScript kullan"\n'));
-        process.exit(1);
+export async function rememberCommand(rule: string): Promise<void> {
+    if (!rule || rule.trim() === "") {
+        console.log(theme.error(`[FAIL] ${t("remember.empty")}`));
+        console.log(theme.dim(`  ${t("remember.emptyExample")}`));
+        return;
     }
 
+    const cleanRule = rule.trim();
+
     try {
-        addMemory(fact);
-        console.log(theme.success(`\n  [OK] New rule saved: "${fact}"`));
-        console.log(theme.dim("  Nova will consider this detail in all future commands.\n"));
-    } catch (error) {
-        console.log(theme.error("\n  [FAIL] Error saving rule.\n"));
-        if (error instanceof Error) {
-            console.log(theme.error(`  → ${error.message}\n`));
-        }
+        await addMemory(cleanRule);
+        console.log();
+        console.log(theme.success(`  [OK] ${t("remember.success", { rule: cleanRule })}`));
+        console.log(theme.dim(`  ${t("remember.hint")}`));
+        console.log();
+    } catch {
+        console.log(theme.error(`[FAIL] ${t("remember.failed")}`));
     }
 }

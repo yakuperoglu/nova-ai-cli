@@ -30,14 +30,39 @@ export const DEFAULT_MODELS: Record<AIProvider, string> = {
     anthropic: "claude-3-5-haiku-20241022",
 };
 
+/**
+ * OpenAI-compatible sağlayıcılar için önceden tanımlı base URL'ler.
+ * "openai" sağlayıcısıyla bu URL'lerden biri seçildiğinde kendi API anahtarı
+ * ve model ismi de değişebilir.
+ */
+export const OPENAI_COMPATIBLE_PRESETS: Record<string, { baseURL: string; defaultModel: string }> = {
+    groq:    { baseURL: "https://api.groq.com/openai/v1",  defaultModel: "llama-3.3-70b-versatile" },
+    ollama:  { baseURL: "http://localhost:11434/v1",        defaultModel: "llama3.2" },
+    lmstudio:{ baseURL: "http://localhost:1234/v1",         defaultModel: "local-model" },
+    together:{ baseURL: "https://api.together.xyz/v1",      defaultModel: "meta-llama/Llama-3-70b-chat-hf" },
+};
+
 export interface NovaConfig {
-    /** @deprecated Eski yapılandırmalar için; gemini anahtarı burada da tutulabilir */
+    /** @deprecated Legacy field; Gemini key is also stored here for backward compat. */
     apiKey?: string;
     provider?: AIProvider;
-    /** Sağlayıcı başına API anahtarları */
+    /** Per-provider API keys */
     providerApiKeys?: Partial<Record<AIProvider, string>>;
     model?: string;
     theme?: string;
+    /**
+     * Custom base URL for OpenAI-compatible endpoints.
+     * When set, the "openai" provider sends requests here.
+     * Example: http://localhost:11434/v1 (Ollama), https://api.groq.com/openai/v1 (Groq)
+     * Defaults to the official OpenAI API.
+     */
+    openaiBaseURL?: string;
+    /**
+     * CLI display language and AI response language.
+     * Supported: "en" (English, default) | "tr" (Turkish)
+     * Change via: nova lang set <en|tr>
+     */
+    language?: string;
 }
 
 const DEFAULT_CONFIG: NovaConfig = {
@@ -206,6 +231,38 @@ export function getTheme(): string {
  */
 export function setTheme(theme: string): void {
     setConfig({ theme });
+}
+
+/**
+ * Aktif OpenAI-compatible base URL'yi döner.
+ * Ayarlanmamışsa resmi OpenAI endpoint'i.
+ */
+export function getOpenAIBaseURL(): string {
+    const config = getConfig();
+    return config.openaiBaseURL?.trim() || "https://api.openai.com/v1";
+}
+
+/**
+ * Özel OpenAI-compatible base URL kaydeder.
+ * Boş/undefined geçilirse sıfırlar (resmi OpenAI'a döner).
+ */
+export function setOpenAIBaseURL(url: string | undefined): void {
+    setConfig({ openaiBaseURL: url?.trim() || undefined });
+}
+
+/**
+ * Returns the configured display/response language (default: "en").
+ */
+export function getLanguageFromConfig(): string {
+    const config = getConfig();
+    return config.language || "en";
+}
+
+/**
+ * Saves the preferred language to the global config.
+ */
+export function setLanguage(lang: string): void {
+    setConfig({ language: lang });
 }
 
 /**

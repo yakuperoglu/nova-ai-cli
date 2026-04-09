@@ -1,97 +1,92 @@
 /**
  * Update Command
  *
- * Self-updates the localized Nova CLI by pulling the latest code from the Git repository,
+ * Self-updates the Nova CLI by pulling the latest code from the Git repository,
  * installing dependencies, and rebuilding the TypeScript source.
  */
 
 import { executeCommand } from "../utils/executor.js";
 import { theme } from "../utils/theme.js";
+import { t } from "../utils/i18n.js";
 import ora from "ora";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 
-// Get the root directory of the CLI project
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// __dirname is dist/commands/ -> root is ../../
 const rootDir = path.resolve(__dirname, "../../");
 
 export async function updateCommand(force: boolean = false): Promise<void> {
     console.log();
-    console.log(theme.brand("  🔄 Nova CLI Auto-Update"));
-    console.log(theme.dim(`  Target directory: ${rootDir}\n`));
+    console.log(theme.brand(`  ${t("update.title")}`));
+    console.log(theme.dim(`  ${t("update.targetDir", { dir: rootDir })}\n`));
 
-    // Ensure it's a git repository
     if (!fs.existsSync(path.join(rootDir, ".git"))) {
-        console.log(theme.error("  [FAIL] Nova CLI is not running from a Git repository."));
-        console.log(theme.dim("  Only versions installed via 'git clone' can be self-updated."));
+        console.log(theme.error(`  [FAIL] ${t("update.notGitRepo")}`));
+        console.log(theme.dim(`  ${t("update.notGitHint")}`));
         console.log();
         process.exit(1);
     }
 
     const spinner = ora({
-        text: theme.dim("Checking for updates on GitHub..."),
+        text: theme.dim(t("update.checkingGitHub")),
         color: "cyan",
     }).start();
 
     try {
-        // ─── 1. Git Pull ───────────────────────────────────────────
-        spinner.text = theme.dim("Downloading source code (git pull)...");
-        // Windows uses ; for sequential commands
-        const cmdSeparator = process.platform === "win32" ? ";" : "&&";
+        // ─── 1. Git Pull ─────────────────────────────────────
+        spinner.text = theme.dim(t("update.downloading"));
+        const cmdSep = process.platform === "win32" ? ";" : "&&";
 
-        const pullResult = await executeCommand(`cd "${rootDir}" ${cmdSeparator} git pull`, 30000); // 30s timeout
+        const pullResult = await executeCommand(`cd "${rootDir}" ${cmdSep} git pull`, 30000);
+        const alreadyUpToDate = pullResult.stdout.includes("Already up to date.");
 
-        const isAlreadyUpToDate = pullResult.stdout.includes("Already up to date.");
-
-        if (isAlreadyUpToDate && !force) {
+        if (alreadyUpToDate && !force) {
             spinner.stop();
-            console.log(theme.success("  [OK] Nova is already up to date!"));
+            console.log(theme.success(`  [OK] ${t("update.alreadyUpToDate")}`));
             console.log();
             return;
         }
 
-        if (isAlreadyUpToDate && force) {
-            spinner.succeed(theme.success("Already up to date, but rebuilding due to force (-f)."));
+        if (alreadyUpToDate && force) {
+            spinner.succeed(theme.success(t("update.alreadyForce")));
         } else {
-            spinner.succeed(theme.success("New source code downloaded successfully."));
+            spinner.succeed(theme.success(t("update.downloadSuccess")));
         }
 
-        // ─── 2. NPM Install ────────────────────────────────────────
+        // ─── 2. NPM Install ──────────────────────────────────
         const depSpinner = ora({
-            text: theme.dim("Updating dependencies (npm install)..."),
+            text: theme.dim(t("update.installing")),
             color: "cyan",
         }).start();
 
-        await executeCommand(`cd "${rootDir}" ${cmdSeparator} npm install`, 60000); // 60s timeout
-        depSpinner.succeed(theme.success("Package dependencies updated."));
+        await executeCommand(`cd "${rootDir}" ${cmdSep} npm install`, 60000);
+        depSpinner.succeed(theme.success(t("update.installSuccess")));
 
-        // ─── 3. TSC Build ──────────────────────────────────────────
+        // ─── 3. TSC Build ────────────────────────────────────
         const buildSpinner = ora({
-            text: theme.dim("Rebuilding Nova CLI (npm run build)..."),
+            text: theme.dim(t("update.building")),
             color: "cyan",
         }).start();
 
-        await executeCommand(`cd "${rootDir}" ${cmdSeparator} npm run build`, 60000); // 60s timeout
-        buildSpinner.succeed(theme.success("Build complete."));
+        await executeCommand(`cd "${rootDir}" ${cmdSep} npm run build`, 60000);
+        buildSpinner.succeed(theme.success(t("update.buildSuccess")));
 
-        // ─── Finish ───────────────────────────────────────────────
+        // ─── Done ─────────────────────────────────────────────
         console.log();
-        console.log(theme.success("  [OK] Nova CLI updated successfully!"));
-        console.log(theme.dim("  You can start using the new features."));
+        console.log(theme.success(`  [OK] ${t("update.success")}`));
+        console.log(theme.dim(`  ${t("update.successHint")}`));
         console.log();
-
     } catch (error) {
         spinner.stop();
-        console.log(theme.error("\n  [FAIL] An error occurred during update.\n"));
+        console.log(theme.error(`\n  [FAIL] ${t("update.error")}\n`));
 
         if (error instanceof Error) {
-            console.log(theme.dim(`  Detail: ${error.message}`));
+            console.log(theme.dim(`  ${t("update.detail", { detail: error.message })}`));
         }
 
-        console.log(theme.dim("\n  Try entering these commands manually:"));
+        console.log(theme.dim(`\n  ${t("update.manual")}`));
         console.log(theme.dim(`  cd "${rootDir}"`));
         console.log(theme.dim("  git pull"));
         console.log(theme.dim("  npm install"));

@@ -3,6 +3,11 @@
  *
  * Provides a blocklist of dangerous commands, a warning system
  * for risky patterns, and input sanitization for AI responses.
+ *
+ * Katmanlar:
+ *  1. HIGH-RISK FAMILIES  — komut ailesine göre hard deny (encoded, eval, obfuscation vb.)
+ *  2. BLOCKED PATTERNS    — regex tabanlı yıkıcı komutlar
+ *  3. WARNING PATTERNS    — onay gerektiren riskli ama meşru komutlar
  */
 
 // ─── Types ─────────────────────────────────────────────────
@@ -14,9 +19,146 @@ export interface ValidationResult {
     reason?: string;
 }
 
-// ─── Blocked Patterns (NEVER execute) ──────────────────────
-// These regex patterns match commands that could cause
-// irreversible system damage.
+// ─── 1. High-Risk Command Families ──────────────────────────
+// Execution/obfuscation vektörleri — regex bypass riskini kapatır.
+// Bu aile belirgin şekilde kötüye kullanım amacı taşır; meşru kullanım
+// senaryosu çok nadir olduğundan tamamen engellenir.
+const HIGH_RISK_FAMILIES: { pattern: RegExp; reason: string }[] = [
+    // ─ PowerShell obfuscation / encoded execution
+    {
+        pattern: /powershell(?:\.exe)?\s+.*-[Ee]n(?:c(?:oded)?)?(?:[Cc]ommand)?\s+/i,
+        reason: "PowerShell EncodedCommand — obfuscated execution vector",
+    },
+    {
+        pattern: /powershell(?:\.exe)?\s+.*-[Cc]ommand\s+["']?\s*[Ii]nvoke-[Ee]xpression/i,
+        reason: "PowerShell Invoke-Expression via -Command — code injection risk",
+    },
+    {
+        pattern: /\bIEX\s*\(/i,
+        reason: "IEX (Invoke-Expression alias) — remote code execution shorthand",
+    },
+    {
+        pattern: /\bInvoke-Expression\b/i,
+        reason: "Invoke-Expression — executes arbitrary string as code",
+    },
+    {
+        pattern: /\bInvoke-WebRequest\b.*\bIEX\b/i,
+        reason: "Download-and-execute via Invoke-WebRequest + IEX",
+    },
+    {
+        pattern: /\[System\.Convert\]::FromBase64String/i,
+        reason: "Base64 decode + execution — obfuscation technique",
+    },
+    {
+        pattern: /\[System\.Text\.Encoding\].*::[Gg]et[Ss]tring.*[Cc]onvert.*[Bb]ase64/i,
+        reason: "Base64 string decode chain — obfuscation technique",
+    },
+
+    // ─ CMD obfuscated execution
+    {
+        pattern: /cmd(?:\.exe)?\s+\/[Cc]\s+.*\^/i,
+        reason: "CMD /C with caret obfuscation — command injection attempt",
+    },
+    {
+        pattern: /cmd(?:\.exe)?\s+\/[Cc]\s+.*<\s*\(/i,
+        reason: "CMD /C with process substitution — obfuscated execution",
+    },
+
+    // ─ Bash/shell eval + remote fetch chain
+    {
+        pattern: /\beval\s+["'`]?\s*\$?\(?\s*(curl|wget|fetch)\b/i,
+        reason: "eval + remote fetch — download-and-execute attack pattern",
+    },
+    {
+        pattern: /\beval\s*["'`$({]/i,
+        reason: "eval with dynamic input — arbitrary code execution risk",
+    },
+    {
+        pattern: /\$\(\s*(curl|wget)\s+/i,
+        reason: "Command substitution with remote fetch — code injection risk",
+    },
+    {
+        pattern: /`\s*(curl|wget)\s+/i,
+        reason: "Backtick command substitution with remote fetch",
+    },
+
+    // ─ Python/Node/Ruby/Perl inline execution from remote
+    {
+        pattern: /python[23]?\s+-c\s+["'].*(?:urllib|requests|socket|subprocess)/i,
+        reason: "Python one-liner with network/subprocess — potential backdoor",
+    },
+    {
+        pattern: /node\s+-e\s+["'].*(?:require\s*\(\s*['"](?:child_process|net|http)|exec\s*\()/i,
+        reason: "Node.js one-liner with child_process/net — potential backdoor",
+    },
+    {
+        pattern: /perl\s+-e\s+["'].*(?:socket|exec|system)/i,
+        reason: "Perl one-liner with network/exec — potential backdoor",
+    },
+    {
+        pattern: /ruby\s+-e\s+["'].*(?:require\s+['"](?:net|open-uri|socket)|exec|system)/i,
+        reason: "Ruby one-liner with network/exec — potential backdoor",
+    },
+
+    // ─ Netcat / reverse shell patterns
+    {
+        pattern: /\bnc\b.*-[elp].*\d{2,5}/i,
+        reason: "netcat listener/connection — potential reverse shell",
+    },
+    {
+        pattern: /\bncat\b.*-[elp]/i,
+        reason: "ncat listener — potential reverse shell",
+    },
+    {
+        pattern: /\/dev\/tcp\//i,
+        reason: "Bash /dev/tcp redirect — reverse shell technique",
+    },
+    {
+        pattern: /\/dev\/udp\//i,
+        reason: "Bash /dev/udp redirect — reverse shell technique",
+    },
+
+    // ─ Credential / secret exfiltration
+    {
+        pattern: /(?:curl|wget|Invoke-WebRequest)\s+.*\s+-[dXH].*(?:Authorization|password|token|secret|api.?key)/i,
+        reason: "HTTP request with credential headers — possible exfiltration",
+    },
+    {
+        pattern: /(?:curl|wget)\s+.*https?:\/\/(?!(?:github|gitlab|npmjs|pypi|rubygems|registry)\.)/i,
+        reason: "Outbound HTTP request to unknown host — review carefully",
+    },
+
+    // ─ Windows: disable security tools / logging
+    {
+        pattern: /Set-MpPreference\s+.*-Disable/i,
+        reason: "Disabling Windows Defender via Set-MpPreference",
+    },
+    {
+        pattern: /netsh\s+(?:advfirewall\s+)?firewall\s+set\s+.*(?:off|disable)/i,
+        reason: "Disabling Windows Firewall",
+    },
+    {
+        pattern: /bcdedit\s+\/set\s+.*(?:off|disable)/i,
+        reason: "Modifying boot configuration — potential security bypass",
+    },
+    {
+        pattern: /wevtutil\s+cl\b/i,
+        reason: "Clearing Windows Event Logs — evidence destruction",
+    },
+    {
+        pattern: /auditpol\s+\/(?:remove|set\s+.*:No Auditing)/i,
+        reason: "Disabling Windows audit policy — evidence destruction",
+    },
+
+    // ─ Crontab/scheduled task based persistence
+    {
+        pattern: /\bcrontab\s+-[rl]\s*;.*(?:curl|wget|bash|sh)/i,
+        reason: "Cron + remote execution — potential persistence mechanism",
+    },
+];
+
+// ─── 2. Blocked Patterns (NEVER execute) ──────────────────────
+// Doğrudan yıkıcı sonuç doğuran komutlar.
 const BLOCKED_PATTERNS: { pattern: RegExp; reason: string }[] = [
     // ─ Filesystem destruction
     { pattern: /rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?[\/~]\s*$/i, reason: "Recursive deletion of root or home directory" },
@@ -49,7 +191,7 @@ const BLOCKED_PATTERNS: { pattern: RegExp; reason: string }[] = [
     { pattern: /\beval\s*\(.*curl/i, reason: "Remote code execution attempt" },
 ];
 
-// ─── Warning Patterns (show caution, allow with confirm) ───
+// ─── 3. Warning Patterns (show caution, allow with confirm) ───
 const WARNING_PATTERNS: { pattern: RegExp; reason: string }[] = [
     { pattern: /\bsudo\b/i, reason: "Running with elevated privileges (sudo)" },
     { pattern: /--force\b/i, reason: "Using --force flag — skips safety checks" },
@@ -74,22 +216,34 @@ const WARNING_PATTERNS: { pattern: RegExp; reason: string }[] = [
 // ─── Public API ────────────────────────────────────────────
 
 /**
- * Validates a command against security blocklist and warning patterns.
+ * Validates a command against three-tier security model:
+ *  1. High-risk family deny (obfuscation, eval, reverse shells…)
+ *  2. Blocked patterns (irreversible destructive commands)
+ *  3. Warning patterns (risky but potentially legitimate)
  *
  * @param command - The shell command string to validate
  * @returns ValidationResult with risk level and reason
  */
 export function validateCommand(command: string): ValidationResult {
-    // Check blocked patterns first
-    for (const { pattern, reason } of BLOCKED_PATTERNS) {
-        if (pattern.test(command)) {
+    const normalized = command.trim();
+
+    // Tier 1: high-risk families — always blocked
+    for (const { pattern, reason } of HIGH_RISK_FAMILIES) {
+        if (pattern.test(normalized)) {
             return { level: "blocked", safe: false, reason };
         }
     }
 
-    // Check warning patterns
+    // Tier 2: destructive commands — always blocked
+    for (const { pattern, reason } of BLOCKED_PATTERNS) {
+        if (pattern.test(normalized)) {
+            return { level: "blocked", safe: false, reason };
+        }
+    }
+
+    // Tier 3: risky commands — warn and ask confirmation
     for (const { pattern, reason } of WARNING_PATTERNS) {
-        if (pattern.test(command)) {
+        if (pattern.test(normalized)) {
             return { level: "warning", safe: true, reason };
         }
     }
@@ -137,7 +291,7 @@ export function sanitizeAIResponse(response: string): string {
 }
 
 /**
- * Returns a risk level emoji for display purposes.
+ * Returns a risk level icon for display purposes.
  */
 export function getRiskIcon(level: RiskLevel): string {
     switch (level) {
