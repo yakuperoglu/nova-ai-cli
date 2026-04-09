@@ -67,25 +67,25 @@ function lockdownLogFile(): void {
 }
 
 /**
- * Appends a log entry to the audit file.
- * Format: [TIMESTAMP] | [STATUS] | Prompt: "..." | Command: "..."
+ * Appends a structured NDJSON log entry to the audit file.
+ * Each line is a self-contained JSON object so parsers never need regex.
  */
 export function appendLog(prompt: string, command: string, status: LogStatus, errorMessage?: string): void {
     try {
         ensureLogDir();
 
-        const timestamp = new Date().toISOString();
-        const safePrompt = redactSecrets(prompt);
-        const safeCommand = redactSecrets(command);
-        let logEntry = `[${timestamp}] | [${status}] | Prompt: "${safePrompt}" | Command: "${safeCommand}"`;
+        const entry: Record<string, string> = {
+            timestamp: new Date().toISOString(),
+            status,
+            prompt: redactSecrets(prompt),
+            command: redactSecrets(command),
+        };
 
         if (status === "FAILED" && errorMessage) {
-            logEntry += ` | Error: ${redactSecrets(errorMessage)}`;
+            entry.error = redactSecrets(errorMessage);
         }
 
-        logEntry += "\n";
-
-        fs.appendFileSync(LOG_FILE, logEntry, "utf-8");
+        fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + "\n", "utf-8");
         lockdownLogFile();
     } catch {
         // Silently fail if logging permissions denied so we don't crash the CLI

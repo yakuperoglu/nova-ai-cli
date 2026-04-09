@@ -123,10 +123,6 @@ const HIGH_RISK_FAMILIES: { pattern: RegExp; reason: string }[] = [
         pattern: /(?:curl|wget|Invoke-WebRequest)\s+.*\s+-[dXH].*(?:Authorization|password|token|secret|api.?key)/i,
         reason: "HTTP request with credential headers — possible exfiltration",
     },
-    {
-        pattern: /(?:curl|wget)\s+.*https?:\/\/(?!(?:github|gitlab|npmjs|pypi|rubygems|registry)\.)/i,
-        reason: "Outbound HTTP request to unknown host — review carefully",
-    },
 
     // ─ Windows: disable security tools / logging
     {
@@ -211,7 +207,47 @@ const WARNING_PATTERNS: { pattern: RegExp; reason: string }[] = [
     { pattern: /\bscp\b|\brsync\b/i, reason: "Remote file transfer" },
     { pattern: /Set-ExecutionPolicy/i, reason: "Changing PowerShell execution policy" },
     { pattern: /\bREG\s+(ADD|DELETE)\b/i, reason: "Windows registry modification" },
+    { pattern: /(?:curl|wget)\s+.*https?:\/\/(?!(?:github|gitlab|npmjs|pypi|rubygems|registry)\.)/i, reason: "Outbound HTTP request to an external host — review carefully" },
 ];
+
+// ─── 4. Shell Separator Tokenizer ──────────────────────────
+// Splits chained commands on ;  &&  ||  |  so that each segment
+// is validated independently.  Quoted sections are preserved so
+// arguments like --message "a && b" are not split incorrectly.
+
+function splitSegments(command: string): string[] {
+    const segments: string[] = [];
+    let current = "";
+    let inSingle = false;
+    let inDouble = false;
+
+    for (let i = 0; i < command.length; i++) {
+        const ch = command[i];
+        const next = command[i + 1];
+
+        if (ch === "'" && !inDouble) { inSingle = !inSingle; current += ch; continue; }
+        if (ch === '"' && !inSingle) { inDouble = !inDouble; current += ch; continue; }
+
+        if (!inSingle && !inDouble) {
+            // &&  ||  — two-char operators
+            if ((ch === "&" && next === "&") || (ch === "|" && next === "|")) {
+                segments.push(current.trim());
+                current = "";
+                i++; // skip second char
+                continue;
+            }
+            // |  ;  — single-char separators (| not part of ||)
+            if (ch === ";" || ch === "|") {
+                segments.push(current.trim());
+                current = "";
+                continue;
+            }
+        }
+        current += ch;
+    }
+    if (current.trim()) segments.push(current.trim());
+    return segments.filter((s) => s.length > 0);
+}
 
 // ─── Public API ────────────────────────────────────────────
 
@@ -221,34 +257,45 @@ const WARNING_PATTERNS: { pattern: RegExp; reason: string }[] = [
  *  2. Blocked patterns (irreversible destructive commands)
  *  3. Warning patterns (risky but potentially legitimate)
  *
+ * Each `;` / `&&` / `||` / `|` separated segment is evaluated
+ * independently so chained dangerous sub-commands cannot hide.
+ *
  * @param command - The shell command string to validate
- * @returns ValidationResult with risk level and reason
+ * @returns ValidationResult with the highest risk level found
  */
 export function validateCommand(command: string): ValidationResult {
-    const normalized = command.trim();
+    const segments = splitSegments(command);
+    // Always include the full command as one of the segments so
+    // cross-segment patterns (e.g. curl … | bash) still match.
+    const targets = segments.length > 1 ? [command.trim(), ...segments] : [command.trim()];
 
-    // Tier 1: high-risk families — always blocked
-    for (const { pattern, reason } of HIGH_RISK_FAMILIES) {
-        if (pattern.test(normalized)) {
-            return { level: "blocked", safe: false, reason };
+    let highestWarning: ValidationResult | null = null;
+
+    for (const seg of targets) {
+        // Tier 1: high-risk families — always blocked
+        for (const { pattern, reason } of HIGH_RISK_FAMILIES) {
+            if (pattern.test(seg)) {
+                return { level: "blocked", safe: false, reason };
+            }
+        }
+
+        // Tier 2: destructive commands — always blocked
+        for (const { pattern, reason } of BLOCKED_PATTERNS) {
+            if (pattern.test(seg)) {
+                return { level: "blocked", safe: false, reason };
+            }
+        }
+
+        // Tier 3: risky commands — warn and ask confirmation
+        for (const { pattern, reason } of WARNING_PATTERNS) {
+            if (pattern.test(seg)) {
+                highestWarning = { level: "warning", safe: true, reason };
+                break;
+            }
         }
     }
 
-    // Tier 2: destructive commands — always blocked
-    for (const { pattern, reason } of BLOCKED_PATTERNS) {
-        if (pattern.test(normalized)) {
-            return { level: "blocked", safe: false, reason };
-        }
-    }
-
-    // Tier 3: risky commands — warn and ask confirmation
-    for (const { pattern, reason } of WARNING_PATTERNS) {
-        if (pattern.test(normalized)) {
-            return { level: "warning", safe: true, reason };
-        }
-    }
-
-    return { level: "safe", safe: true };
+    return highestWarning ?? { level: "safe", safe: true };
 }
 
 /**

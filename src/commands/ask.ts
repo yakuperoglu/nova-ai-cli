@@ -18,12 +18,15 @@ import { confirm } from "@inquirer/prompts";
 import { translateToCommand, AIResponse, AttachedFile } from "../services/ai.js";
 import { executeCommand } from "../utils/executor.js";
 import { validateCommand, getRiskIcon } from "../utils/security.js";
+import { readPolicy, findPolicyFile, matchPolicy } from "../services/policy.js";
 import { addMessage } from "../services/history.js";
 import { appendLog } from "../utils/logger.js";
 import { theme } from "../utils/theme.js";
 import { t } from "../utils/i18n.js";
 
-export async function askCommand(prompt: string, contextFiles?: string[]): Promise<void> {
+const MAX_AUTO_FIX_RETRIES = 3;
+
+export async function askCommand(prompt: string, contextFiles?: string[], retryCount: number = 0): Promise<void> {
     if (!prompt.trim()) {
         console.log(theme.error(`[FAIL] ${t("ask.noPrompt")}`));
         console.log(theme.dim(`  ${t("ask.noPromptExample")}`));
@@ -94,7 +97,7 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
         return;
     }
 
-    // ─── Security Validation ─────────────────────────────────
+    // ─── Security Validation (Tier 1–3) ─────────────────────
     const validation = validateCommand(aiResult.command);
 
     if (validation.level === "blocked") {
@@ -105,15 +108,53 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
         process.exit(1);
     }
 
+    // ─── Policy Validation (Tier 4: project rules) ───────────
+    const policyFilePath = findPolicyFile();
+    let policyRules: import("../services/policy.js").PolicyRule[] = [];
+    if (policyFilePath) {
+        const policyFile = readPolicy(policyFilePath);
+        if (policyFile === null) {
+            console.log(theme.error(`  [POLICY] ${t("policy.parseError", { path: policyFilePath })}`));
+            console.log(theme.dim(`  ${t("policy.parseErrorHint")}`));
+            console.log();
+            process.exit(1);
+        }
+        policyRules = policyFile.rules;
+    }
+
+    // Policy DENY: block the command (cannot be bypassed by user)
+    const denyMatch = matchPolicy(aiResult.command, policyRules.filter((r) => r.type === "deny"));
+    if (denyMatch.matched) {
+        const reason = denyMatch.rule.reason ?? denyMatch.rule.pattern;
+        console.log(theme.error(`  [POLICY] ${t("policy.deniedTitle")}`));
+        console.log(theme.error(`  ${t("policy.deniedReason", { reason })}`));
+        console.log(theme.dim(`  ${t("policy.deniedHint")}`));
+        console.log();
+        process.exit(1);
+    }
+
+    // Policy ALLOW: suppress warning for explicitly permitted commands
+    // (hard-blocked commands from Tier 1-2 are already exited above)
+    let effectiveLevel = validation.level;
     if (validation.level === "warning") {
+        const allowMatch = matchPolicy(aiResult.command, policyRules.filter((r) => r.type === "allow"));
+        if (allowMatch.matched) {
+            const reason = allowMatch.rule.reason ?? allowMatch.rule.pattern;
+            console.log(theme.success(`  ${t("policy.allowedOverride", { reason })}`));
+            console.log();
+            effectiveLevel = "safe";
+        }
+    }
+
+    if (effectiveLevel === "warning") {
         console.log(theme.warning(`  ${getRiskIcon(validation.level)} ${validation.reason ?? ""}`));
         console.log();
     }
 
     const riskBadge =
-        validation.level === "safe"
-            ? theme.success(` ${getRiskIcon(validation.level)} SAFE `)
-            : theme.warning(` ${getRiskIcon(validation.level)} CAUTION `);
+        effectiveLevel === "safe"
+            ? theme.success(` ${getRiskIcon("safe")} SAFE `)
+            : theme.warning(` ${getRiskIcon("warning")} CAUTION `);
 
     // ─── Display Command ─────────────────────────────────────
     console.log(theme.dim("  ┌─────────────────────────────────────────┐"));
@@ -130,7 +171,7 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
     // ─── Ask Confirmation ────────────────────────────────────
     try {
         const confirmMessage =
-            validation.level === "warning"
+            effectiveLevel === "warning"
                 ? theme.warning(t("ask.confirmWarning"))
                 : theme.success(t("ask.confirmSafe"));
 
@@ -166,21 +207,26 @@ export async function askCommand(prompt: string, contextFiles?: string[]): Promi
 
         appendLog(prompt, aiResult.command, "FAILED", errorMessage);
 
-        try {
-            const shouldFix = await confirm({
-                message: theme.brand(t("ask.fixPrompt")),
-                default: true,
-            });
+        if (retryCount < MAX_AUTO_FIX_RETRIES) {
+            const attemptsLeft = MAX_AUTO_FIX_RETRIES - retryCount;
+            try {
+                const shouldFix = await confirm({
+                    message: theme.brand(t("ask.fixPrompt", { attemptsLeft: String(attemptsLeft) })),
+                    default: true,
+                });
 
-            if (shouldFix) {
-                const fixPrompt = `The command I executed "${aiResult.command}" resulted in this error:\n${errorMessage}\nGenerate a new command that fixes this error and explain it.`;
-                await askCommand(fixPrompt, contextFiles);
-                return;
-            } else {
-                console.log(theme.dim(`\n  [FAIL] ${t("ask.fixCancelled")}\n`));
+                if (shouldFix) {
+                    const fixPrompt = `The command I executed "${aiResult.command}" resulted in this error:\n${errorMessage}\nGenerate a new command that fixes this error and explain it.`;
+                    await askCommand(fixPrompt, contextFiles, retryCount + 1);
+                    return;
+                } else {
+                    console.log(theme.dim(`\n  [FAIL] ${t("ask.fixCancelled")}\n`));
+                }
+            } catch {
+                console.log(theme.dim(`\n  [FAIL] ${t("ask.exited")}\n`));
             }
-        } catch {
-            console.log(theme.dim(`\n  [FAIL] ${t("ask.exited")}\n`));
+        } else {
+            console.log(theme.warning(`\n  [WARN] ${t("ask.fixLimitReached")}\n`));
         }
 
         process.exit(1);

@@ -26,8 +26,19 @@ export interface ProviderSetOptions {
     preset?: string;
 }
 
+function isValidHttpUrl(raw: string): boolean {
+    try {
+        const u = new URL(raw);
+        return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+        return false;
+    }
+}
+
 export function providerSetCommand(name: string, opts: ProviderSetOptions = {}): void {
     const clean = name.trim().toLowerCase();
+
+    // ── Validation phase (no state changes yet) ──────────────────────────────
     if (!isProvider(clean)) {
         console.log(
             theme.error(
@@ -42,41 +53,58 @@ export function providerSetCommand(name: string, opts: ProviderSetOptions = {}):
         return;
     }
 
+    if (opts.baseUrl !== undefined) {
+        const trimmed = opts.baseUrl.trim();
+        if (!trimmed || !isValidHttpUrl(trimmed)) {
+            console.log(
+                theme.error(
+                    `[FAIL] ${t("provider.invalidBaseURL", { url: trimmed || "(empty)" })}`
+                )
+            );
+            console.log(theme.dim(`  ${t("provider.invalidBaseURLHint")}`));
+            return;
+        }
+        opts = { ...opts, baseUrl: trimmed };
+    }
+
+    let resolvedBaseURL: string | undefined;
+
+    if (clean === "openai" && opts.preset) {
+        const presetKey = opts.preset.trim().toLowerCase();
+        const preset = OPENAI_COMPATIBLE_PRESETS[presetKey];
+        if (!preset) {
+            console.log(
+                theme.error(
+                    `[FAIL] ${t("provider.invalidPreset", {
+                        preset: presetKey,
+                        presets: Object.keys(OPENAI_COMPATIBLE_PRESETS).join(", "),
+                    })}`
+                )
+            );
+            return;
+        }
+        resolvedBaseURL = preset.baseURL;
+
+        // ── State changes (all validation passed) ────────────────────────────
+        setProvider(clean);
+        setOpenAIBaseURL(resolvedBaseURL);
+
+        console.log();
+        console.log(theme.success(`  [OK] ${t("provider.setSuccess", { provider: clean })}`));
+        console.log(theme.dim(`  ${t("provider.preset", { preset: presetKey })}`));
+        console.log(theme.dim(`  ${t("provider.baseURL", { url: preset.baseURL })}`));
+        console.log(theme.dim(`  ${t("provider.recommendedModel", { model: preset.defaultModel })}`));
+        console.log(theme.dim(`  ${t("provider.modelCmd", { model: preset.defaultModel })}`));
+        console.log(theme.dim(`  ${t("provider.authHint", { provider: clean })}`));
+        console.log();
+        return;
+    }
+
+    // ── State changes for non-preset path ────────────────────────────────────
     setProvider(clean);
 
     if (clean === "openai") {
-        if (opts.preset) {
-            const presetKey = opts.preset.trim().toLowerCase();
-            const preset = OPENAI_COMPATIBLE_PRESETS[presetKey];
-            if (!preset) {
-                console.log(
-                    theme.error(
-                        `[FAIL] ${t("provider.invalidPreset", {
-                            preset: presetKey,
-                            presets: Object.keys(OPENAI_COMPATIBLE_PRESETS).join(", "),
-                        })}`
-                    )
-                );
-                return;
-            }
-            setOpenAIBaseURL(preset.baseURL);
-
-            console.log();
-            console.log(theme.success(`  [OK] ${t("provider.setSuccess", { provider: clean })}`));
-            console.log(theme.dim(`  ${t("provider.preset", { preset: presetKey })}`));
-            console.log(theme.dim(`  ${t("provider.baseURL", { url: preset.baseURL })}`));
-            console.log(theme.dim(`  ${t("provider.recommendedModel", { model: preset.defaultModel })}`));
-            console.log(theme.dim(`  ${t("provider.modelCmd", { model: preset.defaultModel })}`));
-            console.log(theme.dim(`  ${t("provider.authHint", { provider: clean })}`));
-            console.log();
-            return;
-        }
-
-        if (opts.baseUrl) {
-            setOpenAIBaseURL(opts.baseUrl);
-        } else {
-            setOpenAIBaseURL(undefined);
-        }
+        setOpenAIBaseURL(opts.baseUrl ?? undefined);
     }
 
     console.log();

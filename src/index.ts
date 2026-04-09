@@ -28,6 +28,12 @@ import { auditCommand } from "./commands/audit.js";
 import { themeSetCommand, themeListCommand } from "./commands/theme.js";
 import { updateCommand } from "./commands/update.js";
 import { langSetCommand, langStatusCommand } from "./commands/lang.js";
+import {
+    policyShowCommand,
+    policyInitCommand,
+    policyAddCommand,
+    policyRemoveCommand,
+} from "./commands/policy.js";
 
 const program = new Command();
 
@@ -102,9 +108,29 @@ program
  SECURITY & AUDIT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   nova audit                          Recent commands (success / fail / cancel)
+  nova audit --filter FAILED          Only failed commands
+  nova audit --json                   Machine-readable NDJSON output
   Blocked:  rm -rf /, format, EncodedCommand, eval+fetch, reverse shells…
   Warning:  sudo, chmod 777, kill -9, registry changes…
   Redacted: API keys are masked before being written to audit logs.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ PROJECT POLICY  (.nova-policy.json)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  nova policy                         Show active policy rules
+  nova policy init                    Create .nova-policy.json with starter rules
+  nova policy add deny  "<pattern>"   Block a command pattern in this project
+  nova policy add allow "<pattern>"   Allow a command (suppress warning)
+  nova policy remove <n>              Remove rule #n
+
+  Pattern syntax:
+    Plain string  →  substring match  ("rm -rf node_modules")
+    Glob          →  * and ? wildcards  ("npm run *")
+    Regex         →  /^sudo\\s+rm/i
+
+  deny  rules block matching commands outright (like a hard-block).
+  allow rules silence "warning" level for explicitly permitted commands.
+  Hard-blocked security rules (rm -rf /, reverse shells…) are NEVER overridden.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  THEMES & UPDATES
@@ -113,6 +139,7 @@ program
   nova theme set dracula              Switch UI theme
   nova update                         Update to latest version (git pull + build)
   nova update -f                      Force rebuild
+  nova update --dry-run               Preview update steps without making changes
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  EXAMPLES
@@ -131,12 +158,12 @@ program
 program
     .command("ask", { isDefault: true })
     .description("Translate a natural language prompt into a shell command")
-    .argument("<prompt...>", "Your request in natural language")
+    .argument("[prompt...]", "Your request in natural language")
     .option("-f, --file <paths...>", "Attach files as context")
     .action(async (promptParts: string[], options: { file?: string[] }) => {
         const prompt = promptParts.join(" ").trim();
 
-        if (prompt === "?" || prompt.toLowerCase() === "help") {
+        if (!prompt || prompt === "?" || prompt.toLowerCase() === "help") {
             program.help();
             return;
         }
@@ -212,8 +239,11 @@ program
 program
     .command("audit")
     .description("View recent commands executed via Nova (Audit Trail)")
-    .action(() => {
-        auditCommand();
+    .option("--json", "Print raw NDJSON entries (machine-readable)")
+    .option("--filter <status>", "Filter by status: SUCCESS | FAILED | CANCELLED")
+    .option("--limit <n>", "Number of entries to show (default: 30)", "30")
+    .action((opts: { json?: boolean; filter?: string; limit?: string }) => {
+        auditCommand({ json: opts.json, filter: opts.filter, limit: parseInt(opts.limit ?? "30", 10) });
     });
 
 // ─── Model Selection Command ─────────────────────────────────
@@ -259,8 +289,9 @@ program
     .command("update")
     .description("Update Nova CLI to the latest version from GitHub")
     .option("-f, --force", "Force dependency reinstall and full rebuild even if already up to date")
-    .action(options => {
-        updateCommand(options.force);
+    .option("--dry-run", "Preview what would happen without making any changes")
+    .action((options: { force?: boolean; dryRun?: boolean }) => {
+        updateCommand(options.force, options.dryRun);
     });
 
 // ─── Provider Command ────────────────────────────────────────
@@ -314,6 +345,43 @@ langCmd
 langCmd.action(() => {
     langStatusCommand();
 });
+
+// ─── Policy Command ──────────────────────────────────────────
+const policyCmd = program
+    .command("policy")
+    .description("Manage project-scoped allow / deny rules (.nova-policy.json)")
+    .action(() => {
+        policyShowCommand();
+    });
+
+policyCmd
+    .command("init")
+    .description("Create .nova-policy.json with starter rules in the current directory")
+    .action(() => {
+        policyInitCommand();
+    });
+
+policyCmd
+    .command("show")
+    .description("List all rules in the active policy file")
+    .action(() => {
+        policyShowCommand();
+    });
+
+policyCmd
+    .command("add <type> <pattern>")
+    .description("Add a rule: type is 'allow' or 'deny', pattern is a string, glob, or /regex/")
+    .option("-r, --reason <text>", "Human-readable explanation for this rule")
+    .action((type: string, pattern: string, opts: { reason?: string }) => {
+        policyAddCommand(type, pattern, opts);
+    });
+
+policyCmd
+    .command("remove <index>")
+    .description("Remove a rule by its 1-based index (see: nova policy show)")
+    .action((index: string) => {
+        policyRemoveCommand(index);
+    });
 
 // ─── Parse & Execute ─────────────────────────────────────────
 program.parse(process.argv);

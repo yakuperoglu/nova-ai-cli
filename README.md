@@ -1,4 +1,4 @@
-# Nova CLI — v2.1.1
+# Nova CLI — v2.2.1
 
 Nova is an AI-powered terminal assistant that translates natural language into safe, executable shell commands. It supports **Google Gemini, OpenAI, Anthropic Claude**, and any **OpenAI-compatible** provider (Groq, Ollama, LM Studio, Together AI).
 
@@ -21,7 +21,7 @@ Nova is an AI-powered terminal assistant that translates natural language into s
 - **Cross-Platform**: Windows (PowerShell), macOS and Linux (bash/zsh).
 - **Color Themes**: `default`, `dracula`, `ocean`, `monokai`, `hacker`.
 - **Self-Updating**: `nova update` pulls latest code and rebuilds automatically.
-- **Test Suite**: 73 unit tests covering security rules, provider inference, log redaction, and timeout behavior.
+- **Test Suite**: 128 unit tests covering security rules (including chained commands), provider inference, log redaction, timeout behavior, audit format, provider state atomicity, and project policy matching.
 
 ---
 
@@ -247,6 +247,93 @@ nova reset
 
 ---
 
+## Project Policy
+
+The `nova policy` feature lets you define per-project **allow / deny** rules in a `.nova-policy.json` file. Nova searches for this file starting from the current directory up to the filesystem root (similar to how ESLint or Git find their config).
+
+### Getting Started
+
+```bash
+nova policy init           # create .nova-policy.json with starter rules
+nova policy                # show active policy (same as nova policy show)
+nova policy show           # list all rules with index numbers
+```
+
+```
+  Nova Project Policy
+  Policy file: /my-project/.nova-policy.json
+
+  Active rules (2):
+   1. [DENY ] rm -rf node_modules  — reason: Use npm ci or npm clean-install instead
+   2. [ALLOW] sudo npm install -g  — reason: Global package installs are permitted
+```
+
+### Adding Rules
+
+```bash
+# Block a command pattern in this project
+nova policy add deny "rm -rf node_modules" --reason "Use npm ci instead"
+
+# Suppress warning for an explicitly permitted command
+nova policy add allow "sudo npm install -g" --reason "Required for global packages"
+
+# Glob pattern: match any npm run script
+nova policy add deny "npm run deploy" --reason "Use CI/CD pipeline instead"
+
+# Regex pattern
+nova policy add deny "/^curl.*api\.internal/" --reason "No direct internal API calls"
+```
+
+### Removing Rules
+
+```bash
+nova policy show      # find the index number
+nova policy remove 1  # remove rule #1
+```
+
+### Pattern Syntax
+
+| Pattern | Behavior |
+|---|---|
+| `rm -rf node_modules` | Case-insensitive substring match |
+| `npm run *` | Glob — `*` matches any characters |
+| `npm run ?uild` | Glob — `?` matches one character |
+| `/^sudo\s+rm/i` | Regex (wrapped in `/…/flags`) |
+
+### Rule Types
+
+- **`deny`** — blocks the command outright. The user cannot bypass it. Shown as `[POLICY] BLOCKED`.
+- **`allow`** — suppresses the "warning" level for explicitly permitted commands (e.g. `sudo` inside Docker CI). Hard-blocked security patterns (`rm -rf /`, reverse shells…) are **never** overrideable.
+
+### Example `.nova-policy.json`
+
+```json
+{
+  "version": 1,
+  "rules": [
+    {
+      "type": "deny",
+      "pattern": "rm -rf node_modules",
+      "reason": "Use npm ci or npm clean-install instead"
+    },
+    {
+      "type": "deny",
+      "pattern": "npm run deploy",
+      "reason": "Deployments must go through the CI/CD pipeline"
+    },
+    {
+      "type": "allow",
+      "pattern": "sudo npm install -g",
+      "reason": "Global package installs are permitted in this project"
+    }
+  ]
+}
+```
+
+Commit this file to your repository to share policy rules with your team.
+
+---
+
 ## Security
 
 Nova runs every AI-generated command through a **3-tier security engine** before showing it to you.
@@ -289,15 +376,19 @@ All AI API calls (OpenAI, Anthropic) abort after **25 seconds** with a clear err
 ## Audit Log
 
 ```bash
-nova audit
+nova audit                          # formatted output (last 30)
+nova audit --filter FAILED          # only failed commands
+nova audit --filter SUCCESS --limit 10
+nova audit --json                   # machine-readable NDJSON
+nova audit --json | grep FAILED     # pipe-friendly filtering
 ```
 
 Shows the last 30 executed/cancelled/failed commands with timestamps.
 
 ```
-[2026-04-09T14:32:01Z] | [SUCCESS]   | Prompt: "list all files" | Command: "ls -la"
-[2026-04-09T14:35:17Z] | [CANCELLED] | Prompt: "delete node_modules" | Command: "rm -rf node_modules"
-[2026-04-09T14:40:03Z] | [FAILED]    | Prompt: "run tests" | Command: "npm test" | Error: ...
+[OK]    2026-04-09T14:32:01Z "list all files" → ls -la
+[SKIP]  2026-04-09T14:35:17Z "delete node_modules" → rm -rf node_modules
+[FAIL]  2026-04-09T14:40:03Z "run tests" → npm test  ✖ exit code 1
 ```
 
 ---
@@ -318,9 +409,12 @@ nova theme set default
 ## Self-Update
 
 ```bash
-nova update         # git pull + npm install + build
-nova update -f      # force full rebuild even if already up to date
+nova update            # git pull + npm install + build
+nova update -f         # force full rebuild even if already up to date
+nova update --dry-run  # preview steps without making any changes
 ```
+
+The update command validates that you are on the `main`/`master` branch and shows the remote URL before pulling, so you can verify the source. If you are on a different branch, Nova warns you but continues.
 
 Requires installation via `git clone`. npm global installs should use `npm update -g nova-ai-cli`.
 
@@ -350,10 +444,17 @@ nova remember "<rule>"
 nova memory [-l | -c | -r <n>]
 nova reset
 
-nova audit
+nova audit [--json] [--filter <STATUS>] [--limit <n>]
+
+nova policy
+nova policy init
+nova policy show
+nova policy add <allow|deny> "<pattern>" [--reason <text>]
+nova policy remove <n>
+
 nova theme list
 nova theme set <name>
-nova update [-f]
+nova update [-f] [--dry-run]
 
 nova -v / --version
 nova --help / nova ?
@@ -374,6 +475,6 @@ nova --help / nova ?
 ```bash
 npm run build       # compile TypeScript
 npm run dev         # run with tsx (no compile step)
-npm test            # run 73 unit tests (vitest)
+npm test            # run 128 unit tests (vitest)
 npm run test:watch  # watch mode
 ```
